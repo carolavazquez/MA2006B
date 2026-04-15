@@ -1,0 +1,6 @@
+{
+    "require": {
+        "firebase/php-jwt": "^7.0",
+        "spomky-labs/otphp": "^11.4"
+    }
+}

@@ -1,0 +1,168 @@
+{
+  "info": {
+    "name": "Casa Monarca API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "token",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.token) {",
+                  "  pm.collectionVariables.set('token', json.token);",
+                  "  console.log('Token guardado automáticamente');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/auth/login.php",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":\"admin@casamonarca.org\",\"password\":\"1938c7949f60a677\"}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Usuarios",
+      "item": [
+        {
+          "name": "Listar colaboradores",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/usuarios/listar.php",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}]
+          }
+        },
+        {
+          "name": "Listar por nivel",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/usuarios/listar.php?nivel=2",
+              "query": [{"key": "nivel", "value": "2"}]
+            },
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}]
+          }
+        },
+        {
+          "name": "Listar por área",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/usuarios/listar.php?area=Legal",
+              "query": [{"key": "area", "value": "Legal"}]
+            },
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}]
+          }
+        },
+        {
+          "name": "Ver colaborador",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/usuarios/ver.php?id=USUARIO_ID",
+              "query": [{"key": "id", "value": "USUARIO_ID"}]
+            },
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}]
+          }
+        },
+        {
+          "name": "Crear colaborador",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/usuarios/crear.php",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{token}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"nombre\":\"Nombre Apellido\",\"email\":\"email@casamonarca.org\",\"nivel\":2,\"area\":\"Legal\"}"
+            }
+          }
+        },
+        {
+          "name": "Activar colaborador",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/usuarios/activar.php",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{token}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"usuario_id\":\"USUARIO_ID\"}"
+            }
+          }
+        },
+        {
+          "name": "Editar colaborador",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/usuarios/editar.php",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{token}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"usuario_id\":\"USUARIO_ID\",\"nivel\":3,\"area\":\"Legal\"}"
+            }
+          }
+        },
+        
+        {
+          "name": "Revocar colaborador",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/usuarios/revocar.php",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{token}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"usuario_id\":\"USUARIO_ID\"}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Seed",
+      "item": [
+        {
+          "name": "Correr seed",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/seed.php"
+          }
+        }
+      ]
+    }
+  ]
+}

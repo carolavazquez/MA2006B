@@ -1,0 +1,14 @@
+# Dependencias
+vendor/
+
+# Configuración sensible
+src/config/database.php
+
+# Certificados
+/var/certificados/
+
+# Docker volumes
+db_data/
+
+# Composer
+composer.lock
