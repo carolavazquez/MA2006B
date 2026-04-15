@@ -1,0 +1,1270 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Casa Monarca — Sistema Interno</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap');
+:root {
+  --bg:#F4F2ED; --surface:#fff; --border:#E0DDD5; --border2:#C8C5BB;
+  --text:#1C1B18; --muted:#6B6860; --hint:#A09D95;
+  --accent:#2B5F3E; --accent2:#1E4530; --accent-bg:#E8F2EC;
+  --danger:#C0392B; --danger-bg:#FAEAEA;
+  --warn:#9A6200; --warn-bg:#FEF3DC;
+  --info:#185FA5; --info-bg:#E6F1FB;
+  --radius:10px; --radius-sm:6px;
+  --font:'DM Sans',sans-serif; --mono:'DM Mono',monospace;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:15px}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;line-height:1.6}
+.hidden{display:none!important}
+.w-full{width:100%}
+.ml-auto{margin-left:auto}
+.muted{color:var(--muted)}
+.mono{font-family:var(--mono);font-size:12px}
+.text-sm{font-size:13px}
+.text-xs{font-size:12px}
+.mt-8{margin-top:8px} .mt-12{margin-top:12px} .mt-16{margin-top:16px} .mt-24{margin-top:24px}
+
+/* BADGE */
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:500;padding:2px 8px;border-radius:20px;white-space:nowrap}
+.badge-green{background:var(--accent-bg);color:var(--accent2)}
+.badge-red{background:var(--danger-bg);color:var(--danger)}
+.badge-amber{background:var(--warn-bg);color:var(--warn)}
+.badge-blue{background:var(--info-bg);color:var(--info)}
+.badge-gray{background:#EEECE6;color:var(--muted)}
+.role-1{background:#EDE8FB;color:#3C3489}
+.role-2{background:#E1F5EE;color:#085041}
+.role-3{background:#E6F1FB;color:#0C447C}
+.role-4{background:#F1EFE8;color:#5F5E5A}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:0 16px;height:36px;border-radius:var(--radius-sm);font-family:var(--font);font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;border:1px solid transparent;white-space:nowrap;text-decoration:none}
+.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn-primary:hover{background:var(--accent2);border-color:var(--accent2)}
+.btn-ghost{background:transparent;color:var(--text);border-color:var(--border2)}
+.btn-ghost:hover{background:var(--bg)}
+.btn-danger{background:var(--danger-bg);color:var(--danger);border-color:#f0b0a8}
+.btn-danger:hover{background:#f5d0cc}
+.btn-sm{height:28px;padding:0 10px;font-size:12px}
+.btn-link{background:none;border:none;color:var(--accent);font-size:13px;cursor:pointer;font-family:var(--font);text-decoration:underline;padding:0}
+.btn:disabled,.btn[disabled]{opacity:.4;cursor:not-allowed;pointer-events:none}
+
+/* FORMS */
+.form-group{display:flex;flex-direction:column;gap:5px}
+.form-label{font-size:13px;font-weight:500}
+.form-hint{font-size:12px;color:var(--muted)}
+.form-input,.form-select{width:100%;padding:0 12px;height:38px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);font-family:var(--font);font-size:14px;color:var(--text);transition:border-color .15s,box-shadow .15s;outline:none}
+.form-input:focus,.form-select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(43,95,62,.12)}
+.form-input.error{border-color:var(--danger)}
+.form-select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' stroke='%236B6860' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.form-error{font-size:12px;color:var(--danger);margin-top:4px}
+
+/* CARD */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 24px}
+.card-title{font-size:15px;font-weight:500}
+.card-sub{font-size:13px;color:var(--muted);margin-top:2px}
+
+/* ALERT */
+.alert{padding:10px 14px;border-radius:var(--radius-sm);font-size:13px;display:flex;align-items:flex-start;gap:8px}
+.alert-warn{background:var(--warn-bg);color:var(--warn);border:1px solid #e8d5a0}
+.alert-info{background:var(--info-bg);color:var(--info);border:1px solid #b5d4f4}
+.alert-danger{background:var(--danger-bg);color:var(--danger);border:1px solid #f0b0a8}
+.alert-success{background:var(--accent-bg);color:var(--accent2);border:1px solid #9FD4B0}
+
+/* TABLE */
+.data-table{width:100%;border-collapse:collapse;font-size:13px}
+.data-table th{text-align:left;padding:9px 12px;font-size:11px;font-weight:500;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;border-bottom:1px solid var(--border);background:var(--bg)}
+.data-table td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
+.data-table tr:last-child td{border-bottom:none}
+.data-table tbody tr:hover{background:#fafaf8}
+
+/* AVATAR */
+.avatar{width:32px;height:32px;border-radius:50%;background:var(--accent-bg);color:var(--accent2);font-size:11px;font-weight:500;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.avatar-lg{width:48px;height:48px;font-size:16px}
+
+/* STATUS DOT */
+.dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:4px}
+.dot-green{background:#27AE60} .dot-amber{background:#E6A817} .dot-red{background:#C0392B} .dot-gray{background:var(--hint)}
+
+/* ── AUTH SCREEN ── */
+#screen-auth{min-height:100vh;display:flex;align-items:stretch}
+.auth-left{width:340px;flex-shrink:0;background:var(--accent);color:#fff;display:flex;flex-direction:column;padding:48px 40px}
+.auth-logo{font-size:18px;font-weight:500;letter-spacing:-.02em}
+.auth-logo span{opacity:.6;font-weight:300}
+.auth-tagline{margin-top:auto;font-size:20px;font-weight:300;line-height:1.4;letter-spacing:-.01em;opacity:.9}
+.auth-tagline strong{font-weight:500}
+.auth-legal{margin-top:24px;font-size:11px;opacity:.5;line-height:1.5}
+.auth-right{flex:1;display:flex;align-items:center;justify-content:center;padding:48px}
+.auth-wrap{width:100%;max-width:400px}
+.auth-wrap h2{font-size:22px;font-weight:500;letter-spacing:-.02em}
+.auth-wrap p{font-size:14px;color:var(--muted);margin-top:4px}
+.auth-tabs{display:flex;border-bottom:1px solid var(--border);margin:24px 0 20px}
+.auth-tab{padding:8px 18px;font-size:14px;font-weight:500;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s;background:none;border-top:none;border-left:none;border-right:none;font-family:var(--font)}
+.auth-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+
+/* ── APP SHELL ── */
+#screen-app{display:flex;min-height:100vh}
+.sidebar{width:216px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column}
+.sb-brand{padding:18px 20px;border-bottom:1px solid var(--border)}
+.sb-brand .brand{font-size:14px;font-weight:500}
+.sb-brand .sub{font-size:11px;color:var(--muted);margin-top:1px}
+.sb-user{display:flex;align-items:center;gap:10px;padding:12px 20px;border-bottom:1px solid var(--border)}
+.sb-user .uname{font-size:13px;font-weight:500}
+.sb-user .urole{font-size:11px;color:var(--muted)}
+.sb-nav{flex:1;padding:8px 0;overflow-y:auto}
+.nav-sec{padding:10px 20px 3px;font-size:10px;font-weight:500;color:var(--hint);letter-spacing:.08em;text-transform:uppercase}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 20px;font-size:13px;color:var(--muted);cursor:pointer;transition:all .12s;border-left:2px solid transparent;user-select:none}
+.nav-item:hover{background:var(--bg);color:var(--text)}
+.nav-item.active{background:var(--accent-bg);color:var(--accent2);border-left-color:var(--accent);font-weight:500}
+.nav-item .badge{margin-left:auto}
+.sb-foot{padding:12px 20px;border-top:1px solid var(--border)}
+.main{flex:1;overflow:auto;display:flex;flex-direction:column}
+.page-head{padding:22px 32px 18px;border-bottom:1px solid var(--border);background:var(--surface)}
+.page-head h1{font-size:20px;font-weight:500;letter-spacing:-.02em}
+.page-head p{font-size:13px;color:var(--muted);margin-top:2px}
+.page-body{padding:26px 32px;flex:1}
+
+/* STAT CARDS */
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:22px}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 18px}
+.stat .label{font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.stat .val{font-size:26px;font-weight:300;letter-spacing:-.03em;margin-top:4px}
+.stat .sub{font-size:12px;color:var(--muted);margin-top:2px}
+
+/* PERMISSION TOGGLES */
+.perm-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.perm-toggle{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500;cursor:pointer;border:1px solid;transition:all .15s;user-select:none}
+.perm-on{background:var(--accent-bg);color:var(--accent2);border-color:#9FD4B0}
+.perm-off{background:#EEECE6;color:var(--hint);border-color:var(--border2)}
+
+/* MODAL */
+.modal-bd{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:1000;padding:24px}
+.modal{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);width:100%;max-width:500px;padding:26px}
+.modal-title{font-size:17px;font-weight:500;letter-spacing:-.02em}
+.modal-sub{font-size:13px;color:var(--muted);margin-top:3px}
+
+/* TOAST */
+#toast{position:fixed;bottom:24px;right:24px;z-index:9999;background:var(--text);color:#fff;padding:10px 16px;border-radius:var(--radius-sm);font-size:13px;font-weight:500;opacity:0;transform:translateY(6px);transition:all .2s;pointer-events:none;max-width:320px}
+#toast.show{opacity:1;transform:translateY(0)}
+#toast.err{background:var(--danger)}
+
+/* SPINNER */
+.spin{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin-dark{border-color:rgba(0,0,0,.12);border-top-color:var(--accent)}
+
+/* CERT PLACEHOLDER */
+.cert-ph{border:2px dashed var(--border2);border-radius:var(--radius);padding:32px 20px;text-align:center;color:var(--muted)}
+.cert-ph svg{width:36px;height:36px;margin-bottom:10px;opacity:.3}
+.cert-ph h3{font-size:14px;font-weight:500;color:var(--text)}
+.cert-ph p{font-size:12px;margin-top:5px}
+
+/* NOTIFICATION ITEM */
+.notif-item{display:flex;align-items:flex-start;gap:12px;padding:14px 20px;border-bottom:1px solid var(--border);transition:background .12s}
+.notif-item:last-child{border-bottom:none}
+.notif-item:hover{background:var(--bg)}
+.notif-item.unread{background:#FAFDF9}
+.notif-unread-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);margin-top:5px;flex-shrink:0}
+.notif-read-dot{width:8px;height:8px;border-radius:50%;background:transparent;margin-top:5px;flex-shrink:0}
+
+@media(max-width:900px){.auth-left{display:none}.stats-grid{grid-template-columns:1fr 1fr}.form-grid{grid-template-columns:1fr}}
+@media(max-width:650px){.sidebar{display:none}}
+</style>
+
+<div id="toast" role="alert" aria-live="assertive"></div>
+
+<!-- ═══════════════════ AUTH SCREEN ═══════════════════ -->
+<div id="screen-auth">
+  <div class="auth-left">
+    <div class="auth-logo">Casa Monarca <span>/ Sistema Interno</span></div>
+    <div class="auth-tagline"><strong>Seguridad y dignidad</strong><br>en cada expediente.</div>
+    <div class="auth-legal">Sistema protegido bajo la Ley Federal de Protección de Datos Personales en Posesión de Particulares. Acceso autorizado únicamente.</div>
+  </div>
+  <div class="auth-right">
+    <div class="auth-wrap">
+      <h2>Bienvenido</h2>
+      <p>Accede con tu cuenta institucional</p>
+      <div class="auth-tabs">
+        <button class="auth-tab active" onclick="showTab('login')">Iniciar sesión</button>
+        <button class="auth-tab" onclick="showTab('register')">Registrarse</button>
+      </div>
+
+      <!-- LOGIN -->
+      <div id="pane-login">
+        <div id="login-err" class="alert alert-danger hidden mt-8"></div>
+        <div class="form-group mt-8">
+          <label class="form-label">Correo institucional</label>
+          <input class="form-input" type="email" id="l-email" placeholder="usuario@casamonarca.org" autocomplete="email">
+        </div>
+        <div class="form-group mt-12">
+          <label class="form-label">Contraseña</label>
+          <input class="form-input" type="password" id="l-pass" placeholder="••••••••" autocomplete="current-password">
+        </div>
+        <!-- PKI PLACEHOLDER -->
+        <div style="margin-top:14px;padding:12px 14px;border-radius:var(--radius-sm);border:1px dashed var(--border2);background:var(--bg)">
+          <div style="font-size:11px;font-weight:500;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em">E.firma / Certificado digital</div>
+          <div class="cert-ph" style="padding:12px;border-style:dashed">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" style="width:22px;height:22px;margin-bottom:4px"><path d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+            <div style="font-size:11px;color:var(--hint)">Autenticación PKI — pendiente de implementación</div>
+          </div>
+        </div>
+        <button class="btn btn-primary w-full mt-16" style="height:42px;font-size:14px" id="btn-login" onclick="doLogin()">
+          Iniciar sesión
+        </button>
+        <div style="margin-top:10px;font-size:12px;color:var(--muted);text-align:center">
+          Credencial de demo: <code style="font-size:11px;background:var(--bg);padding:1px 5px;border-radius:3px">admin@casamonarca.org</code>
+        </div>
+      </div>
+
+      <!-- REGISTER -->
+      <div id="pane-register" class="hidden">
+        <div class="alert alert-info mt-8">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" style="flex-shrink:0;margin-top:1px"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.2"/><path d="M8 7v4M8 5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          <div>Tu cuenta quedará <strong>en pausa</strong> hasta que el administrador apruebe tu solicitud.</div>
+        </div>
+        <div id="reg-err" class="alert alert-danger hidden mt-8"></div>
+        <div id="reg-ok" class="alert alert-success hidden mt-8"></div>
+        <div class="form-grid mt-12">
+          <div class="form-group">
+            <label class="form-label">Nombre(s) <span style="color:var(--danger)">*</span></label>
+            <input class="form-input" type="text" id="r-first" placeholder="María">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Apellidos <span style="color:var(--danger)">*</span></label>
+            <input class="form-input" type="text" id="r-last" placeholder="García López">
+          </div>
+          <div class="form-group" style="grid-column:1/-1">
+            <label class="form-label">Correo institucional <span style="color:var(--danger)">*</span></label>
+            <input class="form-input" type="email" id="r-email" placeholder="usuario@casamonarca.org">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Área <span style="color:var(--danger)">*</span></label>
+            <select class="form-select" id="r-area">
+              <option value="">Seleccionar…</option>
+              <option>Humanitaria</option><option>PsicoSocial</option><option>Legal</option>
+              <option>Comunicación</option><option>Almacén</option><option>Tecnologías de Información</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Rol solicitado <span style="color:var(--danger)">*</span></label>
+            <select class="form-select" id="r-nivel">
+              <option value="">Seleccionar…</option>
+              <option value="2">Coordinador de área</option>
+              <option value="3">Personal operativo</option>
+              <option value="4">Colaborador externo</option>
+            </select>
+          </div>
+          <div class="form-group" style="grid-column:1/-1">
+            <label class="form-label">Contraseña <span style="color:var(--danger)">*</span></label>
+            <input class="form-input" type="password" id="r-pass" placeholder="Mínimo 8 caracteres">
+          </div>
+        </div>
+        <!-- PKI PLACEHOLDER -->
+        <div style="margin-top:12px;padding:12px 14px;border-radius:var(--radius-sm);border:1px dashed var(--border2);background:var(--bg)">
+          <div style="font-size:11px;font-weight:500;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em">Certificado digital / E.firma</div>
+          <div style="font-size:12px;color:var(--muted)">El certificado será generado y emitido por el administrador tras la aprobación de tu solicitud.</div>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button class="btn btn-ghost btn-sm" disabled>Cargar .cer</button>
+            <button class="btn btn-ghost btn-sm" disabled>Cargar .key</button>
+          </div>
+          <div style="font-size:11px;color:var(--hint);margin-top:5px">Módulo PKI — pendiente de implementación</div>
+        </div>
+        <button class="btn btn-primary w-full mt-16" style="height:42px;font-size:14px" id="btn-register" onclick="doRegister()">
+          Enviar solicitud
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ APP SHELL ═══════════════════ -->
+<div id="screen-app" class="hidden">
+  <nav class="sidebar">
+    <div class="sb-brand"><div class="brand">Casa Monarca</div><div class="sub">Sistema interno</div></div>
+    <div class="sb-user">
+      <div class="avatar" id="sb-av">—</div>
+      <div><div class="uname" id="sb-name">—</div><div class="urole" id="sb-role">—</div></div>
+    </div>
+    <div class="sb-nav" id="sb-nav"></div>
+    <div class="sb-foot">
+      <div class="nav-item" onclick="logout()">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M6 2H3a1 1 0 00-1 1v10a1 1 0 001 1h3M10 11l3-3-3-3M13 8H6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Cerrar sesión
+      </div>
+    </div>
+  </nav>
+  <main class="main" id="main"></main>
+</div>
+
+<!-- ═══════════════════ MODAL: EDIT USER ═══════════════════ -->
+<div id="modal-edit" class="modal-bd hidden" onclick="if(event.target===this)closeModal('modal-edit')">
+  <div class="modal">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+      <div><div class="modal-title">Editar colaborador</div><div class="modal-sub" id="medit-sub">—</div></div>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-edit')">✕</button>
+    </div>
+    <input type="hidden" id="medit-id">
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">Área</label>
+        <select class="form-select" id="medit-area">
+          <option>Humanitaria</option><option>PsicoSocial</option><option>Legal</option>
+          <option>Comunicación</option><option>Almacén</option><option>Tecnologías de Información</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nivel de acceso</label>
+        <select class="form-select" id="medit-nivel">
+          <option value="2">2 — Coordinador de área</option>
+          <option value="3">3 — Personal operativo</option>
+          <option value="4">4 — Colaborador externo</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- PERMISSION OVERRIDES -->
+    <!-- NOTE: These toggles are UI-only until a backend endpoint for
+         per-permission overrides is added (e.g. POST /api/usuarios/permisos.php).
+         Currently only nivel (which maps to a full permission set) is sent. -->
+    <div style="margin-top:16px">
+      <div style="font-size:12px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">
+        Permisos individuales
+        <span class="badge badge-amber" style="margin-left:8px;font-size:10px">Backend pendiente</span>
+      </div>
+      <div class="perm-row" id="perm-toggles">
+        <span class="perm-toggle perm-on" data-perm="r" onclick="togglePerm(this)">r — Leer</span>
+        <span class="perm-toggle perm-on" data-perm="w" onclick="togglePerm(this)">w — Escribir</span>
+        <span class="perm-toggle perm-on" data-perm="x" onclick="togglePerm(this)">x — Autorizar</span>
+        <span class="perm-toggle perm-off" data-perm="e" onclick="togglePerm(this)">e — Admin</span>
+      </div>
+      <div style="font-size:11px;color:var(--hint);margin-top:6px">
+        Los permisos del nivel ya incluyen un conjunto base. Las excepciones individuales requieren endpoint <code>/api/usuarios/permisos.php</code>.
+      </div>
+    </div>
+
+    <div id="medit-err" class="alert alert-danger hidden mt-12"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px">
+      <button class="btn btn-ghost" onclick="closeModal('modal-edit')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-save-edit" onclick="saveEdit()">Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ MODAL: NEW USER (Admin manual create) ═══════════════════ -->
+<div id="modal-new" class="modal-bd hidden" onclick="if(event.target===this)closeModal('modal-new')">
+  <div class="modal">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+      <div><div class="modal-title">Crear colaborador</div><div class="modal-sub">Alta manual por administrador</div></div>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-new')">✕</button>
+    </div>
+    <div id="mnew-err" class="alert alert-danger hidden" style="margin-bottom:12px"></div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">Nombre(s) *</label>
+        <input class="form-input" type="text" id="mn-first" placeholder="María">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Apellidos *</label>
+        <input class="form-input" type="text" id="mn-last" placeholder="García">
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label class="form-label">Correo institucional *</label>
+        <input class="form-input" type="email" id="mn-email" placeholder="m.garcia@casamonarca.org">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Área *</label>
+        <select class="form-select" id="mn-area">
+          <option value="">Seleccionar…</option>
+          <option>Humanitaria</option><option>PsicoSocial</option><option>Legal</option>
+          <option>Comunicación</option><option>Almacén</option><option>Tecnologías de Información</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nivel *</label>
+        <select class="form-select" id="mn-nivel">
+          <option value="">Seleccionar…</option>
+          <option value="2">2 — Coordinador</option>
+          <option value="3">3 — Operativo</option>
+          <option value="4">4 — Externo</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px">
+      <button class="btn btn-ghost" onclick="closeModal('modal-new')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-save-new" onclick="saveNewUser()">Crear usuario</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ════════════════════════════════════════
+   CONFIG — change BASE_URL to match your docker host
+════════════════════════════════════════ */
+const BASE_URL = 'http://localhost:8080';
+
+/* ════════════════════════════════════════
+   API HELPER
+════════════════════════════════════════ */
+const API = {
+  token: localStorage.getItem('cm_token') || null,
+
+  headers(json = true) {
+    const h = {};
+    if (json) h['Content-Type'] = 'application/json';
+    if (this.token) h['Authorization'] = 'Bearer ' + this.token;
+    return h;
+  },
+
+  async post(path, body) {
+    const r = await fetch(BASE_URL + path, {
+      method: 'POST',
+      headers: this.headers(),
+      body: JSON.stringify(body)
+    });
+    const data = await r.json().catch(() => ({ error: 'Respuesta inválida del servidor' }));
+    if (!r.ok) throw new Error(data.message || data.error || 'Error ' + r.status);
+    return data;
+  },
+
+  async get(path) {
+    const r = await fetch(BASE_URL + path, { headers: this.headers(false) });
+    const data = await r.json().catch(() => ({ error: 'Respuesta inválida del servidor' }));
+    if (!r.ok) throw new Error(data.message || data.error || 'Error ' + r.status);
+    return data;
+  }
+};
+
+/* ════════════════════════════════════════
+   ROLE DEFINITIONS
+   Nivel 1 = admin (seed only), 2 = coordinator, 3 = member, 4 = observer
+════════════════════════════════════════ */
+const ROLES = {
+  1: { label: 'Administrador',      badge: 'role-1', perms: ['r','w','x','e'] },
+  2: { label: 'Coordinador de área',badge: 'role-2', perms: ['r','w','x']    },
+  3: { label: 'Personal operativo', badge: 'role-3', perms: ['r','w']        },
+  4: { label: 'Colaborador externo',badge: 'role-4', perms: ['r']            },
+};
+
+let SESSION = null;   // { id, nombre, email, nivel, area }
+let NOTIF_COUNT = 0;
+
+/* ════════════════════════════════════════
+   AUTH TAB TOGGLE
+════════════════════════════════════════ */
+function showTab(tab) {
+  document.querySelectorAll('.auth-tab').forEach((t, i) =>
+    t.classList.toggle('active', (i === 0) === (tab === 'login')));
+  document.getElementById('pane-login').classList.toggle('hidden', tab !== 'login');
+  document.getElementById('pane-register').classList.toggle('hidden', tab !== 'register');
+}
+
+/* ════════════════════════════════════════
+   LOGIN  →  POST /auth/login.php
+════════════════════════════════════════ */
+async function doLogin() {
+  const email = document.getElementById('l-email').value.trim();
+  const pass  = document.getElementById('l-pass').value;
+  const errEl = document.getElementById('login-err');
+  const btn   = document.getElementById('btn-login');
+
+  errEl.classList.add('hidden');
+  if (!email || !pass) { showErr(errEl, 'Ingresa correo y contraseña.'); return; }
+
+  setLoading(btn, true);
+  try {
+    const data = await API.post('/auth/login.php', { email, password: pass });
+    API.token = data.token;
+    localStorage.setItem('cm_token', data.token);
+
+    /* Store session info — adapt field names to whatever the login response returns */
+    SESSION = {
+      id:     data.id     || data.usuario_id || null,
+      nombre: data.nombre || data.name       || email.split('@')[0],
+      email:  data.email  || email,
+      nivel:  parseInt(data.nivel || data.level || 1),
+      area:   data.area   || 'Sistema',
+    };
+
+    enterApp();
+  } catch (e) {
+    showErr(errEl, e.message || 'Credenciales incorrectas.');
+  } finally {
+    setLoading(btn, false, 'Iniciar sesión');
+  }
+}
+
+/* ════════════════════════════════════════
+   REGISTER
+   NOTE: Backend is missing POST /api/usuarios/registrar.php
+   This endpoint should accept { nombre, email, nivel, area, password }
+   without a Bearer token (public route) and create the user with
+   estado = 'pendiente'. Until it exists this call will fail —
+   the UI shows a clear error so the user knows what happened.
+════════════════════════════════════════ */
+async function doRegister() {
+  const first = document.getElementById('r-first').value.trim();
+  const last  = document.getElementById('r-last').value.trim();
+  const email = document.getElementById('r-email').value.trim();
+  const area  = document.getElementById('r-area').value;
+  const nivel = document.getElementById('r-nivel').value;
+  const pass  = document.getElementById('r-pass').value;
+  const errEl = document.getElementById('reg-err');
+  const okEl  = document.getElementById('reg-ok');
+  const btn   = document.getElementById('btn-register');
+
+  errEl.classList.add('hidden');
+  okEl.classList.add('hidden');
+  if (!first || !last || !email || !area || !nivel || !pass) {
+    showErr(errEl, 'Completa todos los campos obligatorios.'); return;
+  }
+  if (pass.length < 8) { showErr(errEl, 'La contraseña debe tener al menos 8 caracteres.'); return; }
+
+  setLoading(btn, true);
+  try {
+    await API.post('/api/usuarios/registrar.php', {
+      nombre: first + ' ' + last,
+      email, nivel: parseInt(nivel), area, password: pass
+    });
+    okEl.textContent = 'Solicitud enviada. Tu cuenta estará en pausa hasta la aprobación del administrador.';
+    okEl.classList.remove('hidden');
+    ['r-first','r-last','r-email','r-pass'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('r-area').value = '';
+    document.getElementById('r-nivel').value = '';
+  } catch (e) {
+    const msg = e.message.includes('404')
+      ? 'El endpoint de registro aún no existe en el backend (POST /api/usuarios/registrar.php). Pídele al equipo de backend que lo implemente.'
+      : e.message;
+    showErr(errEl, msg);
+  } finally {
+    setLoading(btn, false, 'Enviar solicitud');
+  }
+}
+
+/* ════════════════════════════════════════
+   ENTER APP
+════════════════════════════════════════ */
+function enterApp() {
+  document.getElementById('screen-auth').classList.add('hidden');
+  document.getElementById('screen-app').classList.remove('hidden');
+
+  const ini = initials(SESSION.nombre);
+  document.getElementById('sb-av').textContent   = ini;
+  document.getElementById('sb-name').textContent = SESSION.nombre;
+  document.getElementById('sb-role').textContent = ROLES[SESSION.nivel]?.label || 'Nivel ' + SESSION.nivel;
+
+  buildSidebar();
+  navigateTo(SESSION.nivel === 1 ? 'dashboard' : 'home');
+}
+
+/* ════════════════════════════════════════
+   SIDEBAR
+════════════════════════════════════════ */
+function buildSidebar() {
+  const nav = document.getElementById('sb-nav');
+  const n = SESSION.nivel;
+
+  const sections = [
+    { label: 'General', items: [
+      { id: n === 1 ? 'dashboard' : 'home', icon: iHome, label: 'Inicio' },
+      { id: 'profile', icon: iUser, label: 'Mi perfil' },
+    ]},
+  ];
+
+  if (n === 1) {
+    sections.push({ label: 'Administración', items: [
+      { id: 'users',   icon: iUsers, label: 'Colaboradores' },
+      { id: 'notifs',  icon: iBell,  label: 'Solicitudes', notif: true },
+      { id: 'certs',   icon: iKey,   label: 'Certificados' },
+      { id: 'audit',   icon: iList,  label: 'Auditoría' },
+    ]});
+  }
+  if (n === 2) {
+    sections.push({ label: 'Mi equipo', items: [
+      { id: 'users', icon: iUsers, label: 'Colaboradores del área' },
+    ]});
+  }
+
+  nav.innerHTML = sections.map(s => `
+    <div class="nav-sec">${s.label}</div>
+    ${s.items.map(item => `
+      <div class="nav-item" id="nav-${item.id}" onclick="navigateTo('${item.id}')">
+        ${item.icon()} ${item.label}
+        ${item.notif ? `<span class="badge badge-amber" id="notif-badge" style="display:none">0</span>` : ''}
+      </div>`).join('')}
+  `).join('');
+}
+
+/* ════════════════════════════════════════
+   ROUTER
+════════════════════════════════════════ */
+function navigateTo(page) {
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  const navEl = document.getElementById('nav-' + page);
+  if (navEl) navEl.classList.add('active');
+
+  const main = document.getElementById('main');
+  main.innerHTML = '<div style="padding:40px 32px;color:var(--muted);font-size:13px;display:flex;gap:10px;align-items:center"><span class="spin spin-dark"></span> Cargando…</div>';
+
+  const pages = {
+    dashboard: renderDashboard,
+    home:      renderHome,
+    users:     renderUsers,
+    notifs:    renderNotifs,
+    certs:     renderCerts,
+    audit:     renderAudit,
+    profile:   renderProfile,
+  };
+  if (pages[page]) pages[page]();
+}
+
+/* ════════════════════════════════════════
+   PAGE: ADMIN DASHBOARD
+════════════════════════════════════════ */
+async function renderDashboard() {
+  const main = document.getElementById('main');
+
+  let users = [];
+  let pending = [];
+  try {
+    users   = await API.get('/api/usuarios/listar.php');
+    pending = Array.isArray(users) ? users.filter(u => u.estado === 'pendiente' || u.activo == 0) : [];
+  } catch(e) { /* show zeros on error */ }
+
+  const total   = Array.isArray(users) ? users.length : 0;
+  const active  = Array.isArray(users) ? users.filter(u => u.activo == 1 || u.estado === 'activo').length : 0;
+  const pCount  = pending.length;
+
+  /* Update notif badge */
+  updateNotifBadge(pCount);
+
+  main.innerHTML = `
+    <div class="page-head">
+      <h1>Panel de administración</h1>
+      <p>${new Date().toLocaleDateString('es-MX',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</p>
+    </div>
+    <div class="page-body">
+      <div class="stats-grid">
+        <div class="stat"><div class="label">Colaboradores totales</div><div class="val">${total}</div><div class="sub">Todos los niveles</div></div>
+        <div class="stat"><div class="label">Activos</div><div class="val" style="color:var(--accent)">${active}</div><div class="sub">Con acceso habilitado</div></div>
+        <div class="stat"><div class="label">Solicitudes pendientes</div><div class="val" style="color:var(--warn)">${pCount}</div><div class="sub">Requieren aprobación</div></div>
+        <div class="stat"><div class="label">Niveles de acceso</div><div class="val">4</div><div class="sub">1 = Admin · 4 = Externo</div></div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+
+        <div class="card">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+            <div class="card-title">Solicitudes recientes</div>
+            ${pCount > 0 ? `<span class="badge badge-amber">${pCount} pendiente${pCount>1?'s':''}</span>` : '<span class="badge badge-green">Al día</span>'}
+          </div>
+          ${pCount === 0
+            ? `<div style="font-size:13px;color:var(--muted);padding:16px 0;text-align:center">Sin solicitudes pendientes</div>`
+            : pending.slice(0,4).map(u => `
+              <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
+                <div class="avatar">${initials(u.nombre||'?')}</div>
+                <div style="flex:1">
+                  <div style="font-size:13px;font-weight:500">${esc(u.nombre||'—')}</div>
+                  <div style="font-size:11px;color:var(--muted)">${esc(u.area||'—')} · Nivel ${u.nivel||'?'}</div>
+                </div>
+                <button class="btn btn-primary btn-sm" onclick="activateUser('${u.id||u.usuario_id}',this)">Aprobar</button>
+                <button class="btn btn-danger btn-sm" onclick="revokeUser('${u.id||u.usuario_id}',this)">Rechazar</button>
+              </div>`).join('')
+          }
+          ${pCount > 4 ? `<div style="margin-top:10px"><button class="btn-link" onclick="navigateTo('notifs')">Ver todas →</button></div>` : ''}
+        </div>
+
+        <div class="card">
+          <div class="card-title" style="margin-bottom:14px">Distribución por nivel</div>
+          ${[1,2,3,4].map(lvl => {
+            const count = Array.isArray(users) ? users.filter(u => parseInt(u.nivel) === lvl).length : 0;
+            const pct   = total > 0 ? Math.round((count/total)*100) : 0;
+            return `
+              <div style="margin-bottom:10px">
+                <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+                  <span><span class="badge ${ROLES[lvl].badge}">${ROLES[lvl].label}</span></span>
+                  <span style="color:var(--muted)">${count} usuario${count!==1?'s':''}</span>
+                </div>
+                <div style="background:var(--border);border-radius:4px;height:5px;overflow:hidden">
+                  <div style="background:var(--accent);width:${pct}%;height:100%;border-radius:4px;transition:width .4s"></div>
+                </div>
+              </div>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>`;
+}
+
+/* ════════════════════════════════════════
+   PAGE: USER HOME (non-admin)
+════════════════════════════════════════ */
+function renderHome() {
+  const main = document.getElementById('main');
+  const perms = ROLES[SESSION.nivel]?.perms || [];
+  main.innerHTML = `
+    <div class="page-head"><h1>Inicio</h1><p>Bienvenido, ${esc(SESSION.nombre)}</p></div>
+    <div class="page-body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div class="card">
+          <div class="card-title" style="margin-bottom:4px">Mi cuenta</div>
+          <div class="card-sub" style="margin-bottom:16px">${esc(SESSION.area)} · <span class="badge ${ROLES[SESSION.nivel]?.badge}">${ROLES[SESSION.nivel]?.label}</span></div>
+          <div style="font-size:13px;color:var(--muted);margin-bottom:8px">Permisos activos:</div>
+          <div class="perm-row">
+            ${['r','w','x','e'].map(p => `<span class="perm-toggle ${perms.includes(p)?'perm-on':'perm-off'}">${p === 'r' ? 'r — Leer' : p === 'w' ? 'w — Escribir' : p === 'x' ? 'x — Autorizar' : 'e — Admin'}</span>`).join('')}
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title" style="margin-bottom:12px">Certificado digital</div>
+          <div class="cert-ph">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg>
+            <h3>Sin certificado asignado</h3>
+            <p>El administrador emitirá tu certificado digital una vez habilitado el módulo PKI.</p>
+            <div style="display:flex;gap:8px;justify-content:center;margin-top:12px">
+              <button class="btn btn-ghost btn-sm" disabled>Cargar .cer</button>
+              <button class="btn btn-ghost btn-sm" disabled>Cargar .key</button>
+            </div>
+            <div style="font-size:11px;color:var(--hint);margin-top:6px">Módulo PKI — pendiente de implementación</div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+/* ════════════════════════════════════════
+   PAGE: USERS TABLE  →  GET /api/usuarios/listar.php
+════════════════════════════════════════ */
+async function renderUsers() {
+  const main = document.getElementById('main');
+  main.innerHTML = `
+    <div class="page-head">
+      <h1>Colaboradores</h1>
+      <p>${SESSION.nivel === 1 ? 'Todos los colaboradores del sistema' : 'Colaboradores de ' + esc(SESSION.area)}</p>
+    </div>
+    <div class="page-body">
+      <div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;align-items:center">
+        <input class="form-input" type="search" placeholder="Buscar nombre o correo…" style="max-width:280px" oninput="filterTable(this.value)">
+        <select class="form-select" style="max-width:190px" onchange="filterTableRole(this.value)">
+          <option value="">Todos los niveles</option>
+          <option value="1">1 — Administrador</option>
+          <option value="2">2 — Coordinador</option>
+          <option value="3">3 — Operativo</option>
+          <option value="4">4 — Externo</option>
+        </select>
+        <select class="form-select" style="max-width:200px" onchange="filterTableArea(this.value)">
+          <option value="">Todas las áreas</option>
+          <option>Humanitaria</option><option>PsicoSocial</option><option>Legal</option>
+          <option>Comunicación</option><option>Almacén</option><option>Tecnologías de Información</option>
+        </select>
+        ${SESSION.nivel === 1 ? `
+        <button class="btn btn-primary" style="margin-left:auto" onclick="openModal('modal-new')">
+          ${iPlus()} Nuevo colaborador
+        </button>` : ''}
+      </div>
+      <div class="card" style="padding:0;overflow:hidden">
+        <div id="users-wrap"><div style="padding:30px;text-align:center"><span class="spin spin-dark"></span></div></div>
+      </div>
+    </div>`;
+
+  try {
+    const url = SESSION.nivel === 1
+      ? '/api/usuarios/listar.php'
+      : `/api/usuarios/listar.php?area=${encodeURIComponent(SESSION.area)}`;
+    const users = await API.get(url);
+    renderUsersTable(Array.isArray(users) ? users : []);
+  } catch(e) {
+    document.getElementById('users-wrap').innerHTML =
+      `<div class="alert alert-danger" style="margin:16px">${esc(e.message)}</div>`;
+  }
+}
+
+function renderUsersTable(users) {
+  const wrap = document.getElementById('users-wrap');
+  if (!wrap) return;
+  if (!users.length) {
+    wrap.innerHTML = '<div style="padding:24px;text-align:center;font-size:13px;color:var(--muted)">Sin colaboradores registrados</div>';
+    return;
+  }
+  const isAdmin = SESSION.nivel === 1;
+  wrap.innerHTML = `
+    <table class="data-table" id="users-tbl">
+      <thead><tr>
+        <th>Colaborador</th>
+        <th>Área</th>
+        <th>Nivel</th>
+        <th>Permisos</th>
+        <th>Estado</th>
+        ${isAdmin ? '<th>Acciones</th>' : ''}
+      </tr></thead>
+      <tbody>
+        ${users.map(u => {
+          const lvl    = parseInt(u.nivel) || 4;
+          const role   = ROLES[lvl] || ROLES[4];
+          const active = u.activo == 1 || u.estado === 'activo';
+          const pend   = u.estado === 'pendiente' || u.activo == 0 && u.estado !== 'revocado';
+          const revoked= u.estado === 'revocado';
+          const perms  = role.perms;
+          const uid    = u.id || u.usuario_id || '';
+          const isAdminUser = lvl === 1;
+
+          return `<tr data-name="${esc((u.nombre||'').toLowerCase())}" data-nivel="${lvl}" data-area="${esc((u.area||'').toLowerCase())}">
+            <td>
+              <div style="display:flex;align-items:center;gap:9px">
+                <div class="avatar" style="width:28px;height:28px;font-size:10px">${initials(u.nombre||'?')}</div>
+                <div>
+                  <div style="font-size:13px;font-weight:500">${esc(u.nombre||'—')}</div>
+                  <div style="font-size:11px;color:var(--muted)">${esc(u.email||'—')}</div>
+                </div>
+              </div>
+            </td>
+            <td>${esc(u.area||'—')}</td>
+            <td><span class="badge ${role.badge}">${lvl} — ${role.label}</span></td>
+            <td>
+              <div class="perm-row">
+                ${['r','w','x','e'].map(p =>
+                  `<span class="perm-toggle ${perms.includes(p)?'perm-on':'perm-off'}" style="cursor:default;font-size:10px">${p}</span>`
+                ).join('')}
+              </div>
+            </td>
+            <td>
+              ${active  ? `<span class="badge badge-green"><span class="dot dot-green"></span>Activo</span>` : ''}
+              ${pend    ? `<span class="badge badge-amber"><span class="dot dot-amber"></span>Pendiente</span>` : ''}
+              ${revoked ? `<span class="badge badge-red"><span class="dot dot-red"></span>Revocado</span>` : ''}
+            </td>
+            ${isAdmin ? `<td>
+              <div style="display:flex;gap:6px;flex-wrap:wrap">
+                ${pend    ? `<button class="btn btn-primary btn-sm" onclick="activateUser('${uid}',this)">Aprobar</button>` : ''}
+                ${!isAdminUser && active ? `<button class="btn btn-ghost btn-sm" onclick="openEditModal('${uid}','${esc(u.nombre||'')}','${esc(u.area||'')}',${lvl})">Editar</button>` : ''}
+                ${!isAdminUser && !revoked ? `<button class="btn btn-danger btn-sm" onclick="revokeUser('${uid}',this)">Revocar</button>` : ''}
+                ${isAdminUser ? `<span style="font-size:11px;color:var(--hint)">Protegido</span>` : ''}
+              </div>
+            </td>` : ''}
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>`;
+}
+
+function filterTable(q) {
+  q = q.toLowerCase();
+  document.querySelectorAll('#users-tbl tbody tr').forEach(r =>
+    r.style.display = r.dataset.name.includes(q) ? '' : 'none');
+}
+function filterTableRole(v) {
+  document.querySelectorAll('#users-tbl tbody tr').forEach(r =>
+    r.style.display = (!v || r.dataset.nivel === v) ? '' : 'none');
+}
+function filterTableArea(v) {
+  v = v.toLowerCase();
+  document.querySelectorAll('#users-tbl tbody tr').forEach(r =>
+    r.style.display = (!v || r.dataset.area.includes(v)) ? '' : 'none');
+}
+
+/* ════════════════════════════════════════
+   PAGE: NOTIFICATIONS / PENDING REQUESTS
+   NOTE: Backend has no /api/usuarios/pendientes.php.
+   We fetch the full list and filter client-side.
+   Ask backend team to add ?estado=pendiente filter
+   to listar.php for efficiency.
+════════════════════════════════════════ */
+async function renderNotifs() {
+  const main = document.getElementById('main');
+  main.innerHTML = `
+    <div class="page-head">
+      <h1>Solicitudes de acceso</h1>
+      <p>Nuevos registros pendientes de aprobación</p>
+    </div>
+    <div class="page-body">
+      <div class="alert alert-info" style="margin-bottom:16px">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" style="flex-shrink:0;margin-top:1px"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.2"/><path d="M8 7v4M8 5v.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+        <div>Nota para el equipo backend: el endpoint <code>/api/usuarios/listar.php</code> no incluye filtro <code>?estado=pendiente</code> en la colección Postman. Se filtra en el cliente por ahora. Añadir ese filtro mejorará el rendimiento.</div>
+      </div>
+      <div id="notifs-wrap"><div style="padding:30px;text-align:center"><span class="spin spin-dark"></span></div></div>
+    </div>`;
+
+  try {
+    const users = await API.get('/api/usuarios/listar.php');
+    const all   = Array.isArray(users) ? users : [];
+    const pend  = all.filter(u => u.estado === 'pendiente' || (u.activo == 0 && u.estado !== 'revocado'));
+    renderNotifList(pend);
+    updateNotifBadge(pend.length);
+  } catch(e) {
+    document.getElementById('notifs-wrap').innerHTML =
+      `<div class="alert alert-danger">${esc(e.message)}</div>`;
+  }
+}
+
+function renderNotifList(users) {
+  const wrap = document.getElementById('notifs-wrap');
+  if (!wrap) return;
+
+  if (!users.length) {
+    wrap.innerHTML = `<div class="card" style="text-align:center;padding:40px;color:var(--muted);font-size:13px">
+      <div style="font-size:24px;margin-bottom:8px">✓</div>Sin solicitudes pendientes. Todas las cuentas están al día.</div>`;
+    return;
+  }
+
+  wrap.innerHTML = `
+    <div style="margin-bottom:14px;font-size:13px;color:var(--muted)">${users.length} solicitud${users.length>1?'es':''} pendiente${users.length>1?'s':''}</div>
+    <div class="card" style="padding:0;overflow:hidden">
+      ${users.map(u => {
+        const uid = u.id || u.usuario_id || '';
+        const lvl = parseInt(u.nivel) || 4;
+        const role = ROLES[lvl] || ROLES[4];
+        return `
+          <div class="notif-item unread" id="notif-${uid}">
+            <div class="notif-unread-dot"></div>
+            <div class="avatar">${initials(u.nombre||'?')}</div>
+            <div style="flex:1">
+              <div style="font-size:14px;font-weight:500">${esc(u.nombre||'—')}</div>
+              <div style="font-size:12px;color:var(--muted);margin-top:2px">
+                ${esc(u.email||'—')} · ${esc(u.area||'—')} ·
+                <span class="badge ${role.badge}" style="font-size:10px">${role.label}</span>
+              </div>
+              ${u.created_at ? `<div style="font-size:11px;color:var(--hint);margin-top:3px">Registrado: ${esc(u.created_at)}</div>` : ''}
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-primary btn-sm" onclick="activateUserNotif('${uid}',this)">Aprobar</button>
+              <button class="btn btn-danger btn-sm" onclick="revokeUserNotif('${uid}',this)">Rechazar</button>
+            </div>
+          </div>`;
+      }).join('')}
+    </div>`;
+}
+
+/* ════════════════════════════════════════
+   PAGE: CERTIFICATES (placeholder)
+════════════════════════════════════════ */
+function renderCerts() {
+  const main = document.getElementById('main');
+  main.innerHTML = `
+    <div class="page-head"><h1>Certificados y E.firma</h1><p>Gestión de identidades criptográficas — PKI</p></div>
+    <div class="page-body">
+      <div class="alert alert-warn" style="margin-bottom:20px">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" style="flex-shrink:0"><path d="M8 2L1 13h14L8 2z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M8 7v3M8 11.5v.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+        <div>Este módulo está reservado para la integración con el backend PKI. Las funciones de emisión, revocación y verificación se habilitarán una vez implementado el servicio criptográfico.</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        ${[
+          ['Emisión de certificados','Generar y asignar certificados digitales a colaboradores aprobados.','Conectar módulo PKI'],
+          ['Revocación','Revocar acceso criptográfico por baja, extravío o expiración.','Gestionar CRL'],
+          ['Verificación externa','Validar documentos firmados con clave pública de la OSF.','Verificar documento'],
+          ['Repositorio de claves','Directorio de claves públicas con alta, validez, baja y rastreo.','Ver repositorio'],
+        ].map(([title,desc,btn]) => `
+          <div class="cert-ph">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg>
+            <h3>${title}</h3><p>${desc}</p>
+            <button class="btn btn-ghost btn-sm mt-12" disabled>${btn}</button>
+            <div style="font-size:11px;color:var(--hint);margin-top:6px">Pendiente de implementación</div>
+          </div>`).join('')}
+      </div>
+    </div>`;
+}
+
+/* ════════════════════════════════════════
+   PAGE: AUDIT LOG (static demo — needs backend endpoint)
+════════════════════════════════════════ */
+function renderAudit() {
+  const main = document.getElementById('main');
+  main.innerHTML = `
+    <div class="page-head"><h1>Bitácora de auditoría</h1><p>Registro de accesos y eventos del sistema</p></div>
+    <div class="page-body">
+      <div class="alert alert-info" style="margin-bottom:16px">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" style="flex-shrink:0;margin-top:1px"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.2"/><path d="M8 7v4M8 5v.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+        <div>Backend pendiente: implementar <code>GET /api/audit/listar.php</code> con campos timestamp, usuario_id, accion, recurso, ip, hash. Por ahora se muestran datos de ejemplo.</div>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden">
+        <table class="data-table">
+          <thead><tr><th>Timestamp</th><th>Usuario</th><th>Acción</th><th>Recurso</th><th>IP</th><th>Hash</th></tr></thead>
+          <tbody>
+            ${[
+              ['2025-11-14 09:42','Admin Root','Login exitoso','Sistema','192.168.1.1','a3f9…d12c','green'],
+              ['2025-11-14 09:15','Ana López','Modificación','Expediente #2847','192.168.1.32','7b2e…f41a','blue'],
+              ['2025-11-14 08:30','Sistema','Respaldo automático','BD completa','—','c19d…3e7b','gray'],
+              ['2025-11-13 18:22','Admin Root','Revocación','Usuario #0042','192.168.1.1','9f3a…81cd','red'],
+              ['2025-11-13 17:10','—','Acceso denegado','Panel Admin','200.68.14.22','2d7f…a90e','amber'],
+            ].map(([ts,usr,act,res,ip,hash,color]) => `
+              <tr>
+                <td class="mono muted">${ts}</td>
+                <td>${usr}</td>
+                <td><span class="badge badge-${color}">${act}</span></td>
+                <td>${res}</td>
+                <td class="mono muted">${ip}</td>
+                <td class="mono muted" style="font-size:11px">${hash}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+/* ════════════════════════════════════════
+   PAGE: PROFILE
+════════════════════════════════════════ */
+function renderProfile() {
+  const u = SESSION;
+  const main = document.getElementById('main');
+  const perms = ROLES[u.nivel]?.perms || [];
+  main.innerHTML = `
+    <div class="page-head"><h1>Mi perfil</h1><p>Información personal y credenciales</p></div>
+    <div class="page-body" style="max-width:680px">
+      <div class="card" style="margin-bottom:16px">
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">
+          <div class="avatar avatar-lg">${initials(u.nombre)}</div>
+          <div>
+            <div style="font-size:18px;font-weight:500">${esc(u.nombre)}</div>
+            <div style="font-size:13px;color:var(--muted)">${esc(u.area)}</div>
+            <span class="badge ${ROLES[u.nivel]?.badge} mt-8">${ROLES[u.nivel]?.label}</span>
+          </div>
+        </div>
+        <hr class="hidden" style="border:none;border-top:1px solid var(--border);margin:16px 0">
+        <div style="border-top:1px solid var(--border);padding-top:16px">
+          <div style="font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:10px">Permisos de la cuenta</div>
+          <div class="perm-row">
+            ${['r','w','x','e'].map(p =>
+              `<span class="perm-toggle ${perms.includes(p)?'perm-on':'perm-off'}" style="cursor:default">${p === 'r' ? 'r — Leer' : p === 'w' ? 'w — Escribir' : p === 'x' ? 'x — Autorizar' : 'e — Admin'}</span>`
+            ).join('')}
+          </div>
+        </div>
+        <div style="border-top:1px solid var(--border);padding-top:16px;margin-top:16px">
+          <div style="font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:12px">Información</div>
+          <div class="form-grid">
+            <div class="form-group"><label class="form-label">Nombre completo</label><input class="form-input" value="${esc(u.nombre)}" readonly style="background:var(--bg)"></div>
+            <div class="form-group"><label class="form-label">Correo</label><input class="form-input" value="${esc(u.email)}" readonly style="background:var(--bg)"></div>
+            <div class="form-group"><label class="form-label">Área</label><input class="form-input" value="${esc(u.area)}" readonly style="background:var(--bg)"></div>
+            <div class="form-group"><label class="form-label">Nivel de acceso</label><input class="form-input" value="${u.nivel} — ${ROLES[u.nivel]?.label}" readonly style="background:var(--bg)"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title" style="margin-bottom:12px">Certificado digital / E.firma</div>
+        <div class="cert-ph">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg>
+          <h3>Sin certificado asignado</h3>
+          <p>El administrador emitirá tu e.firma una vez que el módulo PKI esté implementado.</p>
+          <div style="display:flex;gap:8px;justify-content:center;margin-top:12px">
+            <button class="btn btn-ghost btn-sm" disabled>Cargar .cer</button>
+            <button class="btn btn-ghost btn-sm" disabled>Cargar .key</button>
+            <button class="btn btn-ghost btn-sm" disabled>Probar firma</button>
+          </div>
+          <div style="font-size:11px;color:var(--hint);margin-top:6px">Módulo PKI — pendiente de implementación</div>
+        </div>
+      </div>
+    </div>`;
+}
+
+/* ════════════════════════════════════════
+   USER ACTIONS
+════════════════════════════════════════ */
+async function activateUser(id, btn) {
+  if (!id) return;
+  setLoading(btn, true);
+  try {
+    await API.post('/api/usuarios/activar.php', { usuario_id: id });
+    toast('Usuario aprobado y activado.');
+    renderUsers();
+  } catch(e) { toast(e.message, true); }
+  finally { setLoading(btn, false, 'Aprobar'); }
+}
+
+async function activateUserNotif(id, btn) {
+  if (!id) return;
+  setLoading(btn, true);
+  try {
+    await API.post('/api/usuarios/activar.php', { usuario_id: id });
+    toast('Usuario aprobado.');
+    const row = document.getElementById('notif-' + id);
+    if (row) row.style.opacity = '0.4';
+    /* refresh count */
+    const users = await API.get('/api/usuarios/listar.php');
+    const pend  = Array.isArray(users) ? users.filter(u => u.estado === 'pendiente' || (u.activo==0 && u.estado !== 'revocado')).length : 0;
+    updateNotifBadge(pend);
+  } catch(e) { toast(e.message, true); }
+  finally { setLoading(btn, false, 'Aprobar'); }
+}
+
+async function revokeUser(id, btn) {
+  if (!id) return;
+  setLoading(btn, true);
+  try {
+    await API.post('/api/usuarios/revocar.php', { usuario_id: id });
+    toast('Acceso revocado.');
+    renderUsers();
+  } catch(e) { toast(e.message, true); }
+  finally { setLoading(btn, false, 'Revocar'); }
+}
+
+async function revokeUserNotif(id, btn) {
+  setLoading(btn, true);
+  try {
+    await API.post('/api/usuarios/revocar.php', { usuario_id: id });
+    toast('Solicitud rechazada.');
+    const row = document.getElementById('notif-' + id);
+    if (row) row.style.opacity = '0.4';
+  } catch(e) { toast(e.message, true); }
+  finally { setLoading(btn, false, 'Rechazar'); }
+}
+
+/* ════════════════════════════════════════
+   EDIT MODAL  →  POST /api/usuarios/editar.php
+════════════════════════════════════════ */
+function openEditModal(id, nombre, area, nivel) {
+  document.getElementById('medit-id').value   = id;
+  document.getElementById('medit-sub').textContent = nombre;
+  document.getElementById('medit-area').value = area;
+  document.getElementById('medit-nivel').value = nivel <= 1 ? 2 : nivel;
+  document.getElementById('medit-err').classList.add('hidden');
+
+  /* set perm toggles to match the nivel */
+  const perms = ROLES[nivel]?.perms || ['r'];
+  document.querySelectorAll('#perm-toggles .perm-toggle').forEach(el => {
+    const p = el.dataset.perm;
+    el.className = 'perm-toggle ' + (perms.includes(p) ? 'perm-on' : 'perm-off');
+  });
+
+  openModal('modal-edit');
+}
+
+async function saveEdit() {
+  const id    = document.getElementById('medit-id').value;
+  const area  = document.getElementById('medit-area').value;
+  const nivel = parseInt(document.getElementById('medit-nivel').value);
+  const errEl = document.getElementById('medit-err');
+  const btn   = document.getElementById('btn-save-edit');
+  errEl.classList.add('hidden');
+
+  setLoading(btn, true);
+  try {
+    await API.post('/api/usuarios/editar.php', { usuario_id: id, nivel, area });
+    toast('Cambios guardados correctamente.');
+    closeModal('modal-edit');
+    renderUsers();
+  } catch(e) { showErr(errEl, e.message); }
+  finally { setLoading(btn, false, 'Guardar cambios'); }
+}
+
+/* ════════════════════════════════════════
+   NEW USER MODAL  →  POST /api/usuarios/crear.php
+════════════════════════════════════════ */
+async function saveNewUser() {
+  const first = document.getElementById('mn-first').value.trim();
+  const last  = document.getElementById('mn-last').value.trim();
+  const email = document.getElementById('mn-email').value.trim();
+  const area  = document.getElementById('mn-area').value;
+  const nivel = parseInt(document.getElementById('mn-nivel').value);
+  const errEl = document.getElementById('mnew-err');
+  const btn   = document.getElementById('btn-save-new');
+  errEl.classList.add('hidden');
+
+  if (!first || !last || !email || !area || !nivel) {
+    showErr(errEl, 'Completa todos los campos.'); return;
+  }
+
+  setLoading(btn, true);
+  try {
+    await API.post('/api/usuarios/crear.php', {
+      nombre: first + ' ' + last, email, nivel, area
+    });
+    toast('Colaborador creado. Se enviarán credenciales por correo.');
+    closeModal('modal-new');
+    ['mn-first','mn-last','mn-email'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('mn-area').value = '';
+    document.getElementById('mn-nivel').value = '';
+    renderUsers();
+  } catch(e) { showErr(errEl, e.message); }
+  finally { setLoading(btn, false, 'Crear usuario'); }
+}
+
+/* ════════════════════════════════════════
+   LOGOUT
+════════════════════════════════════════ */
+function logout() {
+  API.token = null;
+  SESSION   = null;
+  localStorage.removeItem('cm_token');
+  document.getElementById('screen-app').classList.add('hidden');
+  document.getElementById('screen-auth').classList.remove('hidden');
+  document.getElementById('l-email').value = '';
+  document.getElementById('l-pass').value  = '';
+}
+
+/* ════════════════════════════════════════
+   UTILS
+════════════════════════════════════════ */
+function initials(name) {
+  return (name||'?').split(' ').filter(Boolean).slice(0,2).map(w => w[0]).join('').toUpperCase();
+}
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function showErr(el, msg) { el.textContent = msg; el.classList.remove('hidden'); }
+function openModal(id)  { document.getElementById(id).classList.remove('hidden'); }
+function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+function togglePerm(el) {
+  el.className = 'perm-toggle ' + (el.classList.contains('perm-on') ? 'perm-off' : 'perm-on');
+}
+function updateNotifBadge(n) {
+  NOTIF_COUNT = n;
+  const badge = document.getElementById('notif-badge');
+  if (!badge) return;
+  badge.textContent = n;
+  badge.style.display = n > 0 ? '' : 'none';
+}
+
+let toastTimer;
+function toast(msg, err = false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = err ? 'show err' : 'show';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.className = '', 3500);
+}
+
+function setLoading(btn, loading, label) {
+  if (!btn) return;
+  if (loading) {
+    btn.dataset.label = btn.textContent;
+    btn.innerHTML = '<span class="spin"></span>';
+    btn.disabled = true;
+  } else {
+    btn.innerHTML = label || btn.dataset.label || 'OK';
+    btn.disabled = false;
+  }
+}
+
+/* ════════════════════════════════════════
+   ICONS
+════════════════════════════════════════ */
+const iHome  = () => `<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 6.5L8 2l6 4.5V14a1 1 0 01-1 1H9v-3H7v3H3a1 1 0 01-1-1V6.5z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>`;
+const iUser  = () => `<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5" r="3" stroke="currentColor" stroke-width="1.3"/><path d="M2 14c0-3 2.686-5 6-5s6 2 6 5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>`;
+const iUsers = () => `<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="6" cy="5" r="2.5" stroke="currentColor" stroke-width="1.3"/><path d="M1 14c0-2.5 2.24-4.5 5-4.5s5 2 5 4.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M11 3a2.5 2.5 0 010 5M15 14c0-2.5-2-4.5-4-4.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>`;
+const iBell  = () => `<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2a5 5 0 00-5 5v3l-1 1.5h12L13 10V7a5 5 0 00-5-5zM6.5 13.5a1.5 1.5 0 003 0" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>`;
+const iKey   = () => `<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="5.5" cy="6.5" r="3.5" stroke="currentColor" stroke-width="1.3"/><path d="M9 9l5 5M12 12l2-2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>`;
+const iList  = () => `<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 3h10v10H3z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M6 6h4M6 9h2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>`;
+const iPlus  = () => `<svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>`;
+
+/* ════════════════════════════════════════
+   AUTO-LOGIN if token in localStorage
+════════════════════════════════════════ */
+(async function init() {
+  if (API.token) {
+    try {
+      /* Try to fetch user list to validate the token is still good.
+         Adapt this to whatever "GET /api/auth/me.php" you may add later. */
+      const users = await API.get('/api/usuarios/listar.php');
+      /* We don't know the current user's details from just the token,
+         so we fall back to a minimal session. Add GET /api/auth/me.php
+         to return the logged-in user's info for proper auto-login. */
+      SESSION = { id: null, nombre: 'Usuario', email: '', nivel: 1, area: 'Sistema' };
+      enterApp();
+    } catch {
+      localStorage.removeItem('cm_token');
+      API.token = null;
+    }
+  }
+})();
+</script>
+</html>
