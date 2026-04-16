@@ -17,8 +17,17 @@ class UsuariosController {
 
         if (isset($_GET['nivel'])) { $filtros[] = "nivel = ?"; $valores[] = $_GET['nivel']; }
         if (isset($_GET['area']))  { $filtros[] = "area = ?";  $valores[] = $_GET['area'];  }
-        if (isset($_GET['activo'])){ $filtros[] = "activo = ?";$valores[] = $_GET['activo'];}
-
+        if (isset($_GET['activo'])) { $filtros[] = "activo = ?"; $valores[] = $_GET['activo']; }
+        if (isset($_GET['estado'])) {
+            if ($_GET['estado'] === 'pendiente') {
+                $filtros[] = "activo = ?";
+                $valores[] = 0;
+            }
+            if ($_GET['estado'] === 'activo') {
+                $filtros[] = "activo = ?";
+                $valores[] = 1;
+            }
+        }
         $where = count($filtros) > 0 ? "WHERE " . implode(" AND ", $filtros) : "";
         $stmt = $this->db->prepare("SELECT id, nombre, email, nivel, area, activo, creado_en FROM usuarios $where ORDER BY nivel ASC, nombre ASC");
         $stmt->execute($valores);

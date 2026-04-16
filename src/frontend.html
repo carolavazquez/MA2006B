@@ -342,7 +342,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
         <span class="perm-toggle perm-off" data-perm="e" onclick="togglePerm(this)">e — Admin</span>
       </div>
       <div style="font-size:11px;color:var(--hint);margin-top:6px">
-        Los permisos del nivel ya incluyen un conjunto base. Las excepciones individuales requieren endpoint <code>/api/usuarios/permisos.php</code>.
+        Los permisos del nivel ya incluyen un conjunto base. Las excepciones individuales requieren endpoint <code>/api/usuarios/permisos</code>.
       </div>
     </div>
 
@@ -434,8 +434,11 @@ const API = {
     const r = await fetch(BASE_URL + path, { headers: this.headers(false) });
     const data = await r.json().catch(() => ({ error: 'Respuesta inválida del servidor' }));
     if (!r.ok) throw new Error(data.message || data.error || 'Error ' + r.status);
+    // Si la respuesta tiene una propiedad que es array, devuélvela directamente
+    if (data.usuarios) return data.usuarios;
+    if (data.historial) return data.historial;
     return data;
-  }
+},
 };
 
 /* ════════════════════════════════════════
@@ -630,7 +633,7 @@ async function renderDashboard() {
   let users = [];
   let pending = [];
   try {
-    users   = await API.get('/api/usuarios/listar.php');
+    users   = await API.get('/api/usuarios/listar');
     pending = Array.isArray(users) ? users.filter(u => u.estado === 'pendiente' || u.activo == 0) : [];
   } catch(e) { /* show zeros on error */ }
 
@@ -770,8 +773,8 @@ async function renderUsers() {
 
   try {
     const url = SESSION.nivel === 1
-      ? '/api/usuarios/listar.php'
-      : `/api/usuarios/listar.php?area=${encodeURIComponent(SESSION.area)}`;
+      ? '/api/usuarios/listar'
+      : `/api/usuarios/listar?area=${encodeURIComponent(SESSION.area)}`;
     const users = await API.get(url);
     renderUsersTable(Array.isArray(users) ? users : []);
   } catch(e) {
@@ -885,7 +888,7 @@ async function renderNotifs() {
     </div>`;
 
   try {
-    const users = await API.get('/api/usuarios/listar.php');
+    const users = await API.get('/api/usuarios/listar');
     const all   = Array.isArray(users) ? users : [];
     const pend  = all.filter(u => u.estado === 'pendiente' || (u.activo == 0 && u.estado !== 'revocado'));
     renderNotifList(pend);
@@ -1063,7 +1066,7 @@ async function activateUser(id, btn) {
   if (!id) return;
   setLoading(btn, true);
   try {
-    await API.post('/api/usuarios/activar.php', { usuario_id: id });
+    await API.post('/api/usuarios/activar', { usuario_id: id });
     toast('Usuario aprobado y activado.');
     renderUsers();
   } catch(e) { toast(e.message, true); }
@@ -1074,12 +1077,12 @@ async function activateUserNotif(id, btn) {
   if (!id) return;
   setLoading(btn, true);
   try {
-    await API.post('/api/usuarios/activar.php', { usuario_id: id });
+    await API.post('/api/usuarios/activar', { usuario_id: id });
     toast('Usuario aprobado.');
     const row = document.getElementById('notif-' + id);
     if (row) row.style.opacity = '0.4';
     /* refresh count */
-    const users = await API.get('/api/usuarios/listar.php');
+    const users = await API.get('/api/usuarios/listar');
     const pend  = Array.isArray(users) ? users.filter(u => u.estado === 'pendiente' || (u.activo==0 && u.estado !== 'revocado')).length : 0;
     updateNotifBadge(pend);
   } catch(e) { toast(e.message, true); }
@@ -1090,7 +1093,7 @@ async function revokeUser(id, btn) {
   if (!id) return;
   setLoading(btn, true);
   try {
-    await API.post('/api/usuarios/revocar.php', { usuario_id: id });
+    await API.post('/api/usuarios/revocar', { usuario_id: id });
     toast('Acceso revocado.');
     renderUsers();
   } catch(e) { toast(e.message, true); }
@@ -1138,7 +1141,7 @@ async function saveEdit() {
 
   setLoading(btn, true);
   try {
-    await API.post('/api/usuarios/editar.php', { usuario_id: id, nivel, area });
+    await API.post('/api/usuarios/editar', { usuario_id: id, nivel, area });
     toast('Cambios guardados correctamente.');
     closeModal('modal-edit');
     renderUsers();
@@ -1165,7 +1168,7 @@ async function saveNewUser() {
 
   setLoading(btn, true);
   try {
-    await API.post('/api/usuarios/crear.php', {
+    await API.post('/api/usuarios/crear', {
       nombre: first + ' ' + last, email, nivel, area
     });
     toast('Colaborador creado. Se enviarán credenciales por correo.');
@@ -1254,7 +1257,7 @@ const iPlus  = () => `<svg width="13" height="13" viewBox="0 0 16 16" fill="none
     try {
       /* Try to fetch user list to validate the token is still good.
          Adapt this to whatever "GET /api/auth/me.php" you may add later. */
-      const users = await API.get('/api/usuarios/listar.php');
+      const users = await API.get('/api/usuarios/listar');
       /* We don't know the current user's details from just the token,
          so we fall back to a minimal session. Add GET /api/auth/me.php
          to return the logged-in user's info for proper auto-login. */
