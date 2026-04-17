@@ -82,20 +82,54 @@ class CertificadosController {
     }
 
     public function verificar() {
-        $body = json_decode(file_get_contents('php://input'), true);
-        $usuario_id = $body['usuario_id'] ?? '';
-        $hash       = $body['hash']       ?? '';
+    $body = json_decode(file_get_contents('php://input'), true);
+    $usuario_id = $body['usuario_id'] ?? '';
+    $hash       = $body['hash']       ?? '';
 
-        if (!$usuario_id || !$hash) return $this->error(400, 'usuario_id y hash son requeridos');
-
-        $stmt = $this->db->prepare("SELECT c.*, u.nombre, u.email, u.nivel, u.area FROM certificados c JOIN usuarios u ON c.usuario_id = u.id WHERE c.usuario_id = ? AND c.hash_certificado = ? AND c.estado = 'activo' AND c.fecha_expiracion > NOW()");
-        $stmt->execute([$usuario_id, $hash]);
-        $cert = $stmt->fetch();
-
-        if (!$cert) return ['status' => 'invalido', 'mensaje' => 'Certificado no válido, revocado o expirado'];
-
-        return ['status' => 'valido', 'mensaje' => 'Certificado válido y activo', 'titular' => ['nombre' => $cert['nombre'], 'email' => $cert['email'], 'nivel' => $cert['nivel'], 'area' => $cert['area']], 'certificado' => ['id' => $cert['id'], 'fecha_emision' => $cert['fecha_emision'], 'fecha_expiracion' => $cert['fecha_expiracion'], 'estado' => $cert['estado']]];
+    if (!$usuario_id) {
+        return $this->error(400, 'usuario_id es requerido');
     }
+
+    if ($hash) {
+        $stmt = $this->db->prepare("
+            SELECT c.*, u.nombre, u.email, u.nivel, u.area 
+            FROM certificados c JOIN usuarios u ON c.usuario_id = u.id 
+            WHERE c.usuario_id = ? AND c.hash_certificado = ? 
+            AND c.estado = 'activo' AND c.fecha_expiracion > NOW()
+        ");
+        $stmt->execute([$usuario_id, $hash]);
+    } else {
+        $stmt = $this->db->prepare("
+            SELECT c.*, u.nombre, u.email, u.nivel, u.area 
+            FROM certificados c JOIN usuarios u ON c.usuario_id = u.id 
+            WHERE c.usuario_id = ? 
+            AND c.estado = 'activo' AND c.fecha_expiracion > NOW()
+        ");
+        $stmt->execute([$usuario_id]);
+    }
+
+    $cert = $stmt->fetch();
+
+    if (!$cert) return ['status' => 'invalido', 'mensaje' => 'Certificado no válido, revocado o expirado'];
+
+    return [
+        'status'  => 'valido',
+        'mensaje' => 'Certificado válido y activo',
+        'titular' => [
+            'nombre' => $cert['nombre'],
+            'email'  => $cert['email'],
+            'nivel'  => $cert['nivel'],
+            'area'   => $cert['area']
+        ],
+        'certificado' => [
+            'id'               => $cert['id'],
+            'hash'             => $cert['hash_certificado'],
+            'fecha_emision'    => $cert['fecha_emision'],
+            'fecha_expiracion' => $cert['fecha_expiracion'],
+            'estado'           => $cert['estado']
+        ]
+    ];
+}
 
     private function bitacora($usuario_id, $accion, $tabla, $registro_id) {
         $this->db->prepare("INSERT INTO bitacora (id, usuario_id, accion, tabla_afectada, registro_id) VALUES (UUID(), ?, ?, ?, ?)")

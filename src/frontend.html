@@ -938,30 +938,79 @@ function renderNotifList(users) {
 }
 
 /* ════════════════════════════════════════
-   PAGE: CERTIFICATES (placeholder)
+   PAGE: CERTIFICATES
 ════════════════════════════════════════ */
-function renderCerts() {
+async function renderCerts() {
   const main = document.getElementById('main');
+
+  let colaboradores = [];
+  try {
+    colaboradores = await API.get('/api/usuarios/listar?activo=1');
+  } catch(e) {}
+
+  const options = colaboradores
+    .filter(u => u.nivel > 1)
+    .map(u => `<option value="${u.id}">${esc(u.nombre)} — ${esc(u.area)} · Nivel ${u.nivel}</option>`)
+    .join('');
+
+  const selectHtml = `<select class="form-select" id="cert-usuario-id"><option value="">Selecciona un colaborador...</option>${options}</select>`;
+  const selectRev  = `<select class="form-select" id="cert-revocar-id"><option value="">Selecciona un colaborador...</option>${options}</select>`;
+
   main.innerHTML = `
     <div class="page-head"><h1>Certificados y E.firma</h1><p>Gestión de identidades criptográficas — PKI</p></div>
     <div class="page-body">
-      <div class="alert alert-warn" style="margin-bottom:20px">
-        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" style="flex-shrink:0"><path d="M8 2L1 13h14L8 2z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M8 7v3M8 11.5v.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
-        <div>Este módulo está reservado para la integración con el backend PKI. Las funciones de emisión, revocación y verificación se habilitarán una vez implementado el servicio criptográfico.</div>
-      </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-        ${[
-          ['Emisión de certificados','Generar y asignar certificados digitales a colaboradores aprobados.','Conectar módulo PKI'],
-          ['Revocación','Revocar acceso criptográfico por baja, extravío o expiración.','Gestionar CRL'],
-          ['Verificación externa','Validar documentos firmados con clave pública de la OSF.','Verificar documento'],
-          ['Repositorio de claves','Directorio de claves públicas con alta, validez, baja y rastreo.','Ver repositorio'],
-        ].map(([title,desc,btn]) => `
-          <div class="cert-ph">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg>
-            <h3>${title}</h3><p>${desc}</p>
-            <button class="btn btn-ghost btn-sm mt-12" disabled>${btn}</button>
-            <div style="font-size:11px;color:var(--hint);margin-top:6px">Pendiente de implementación</div>
-          </div>`).join('')}
+
+        <div class="card">
+          <div class="card-title">Emisión de certificados</div>
+          <div class="card-sub">Generar y asignar certificados digitales a colaboradores aprobados.</div>
+          <div style="margin-top:16px">
+            <div class="form-group">
+              <label class="form-label">Colaborador</label>
+              ${selectHtml}
+            </div>
+            <button class="btn btn-primary mt-12" onclick="generarCertificado()">Generar certificado</button>
+            <div id="cert-gen-result" class="hidden mt-12"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Revocación</div>
+          <div class="card-sub">Revocar acceso criptográfico por baja, extravío o expiración.</div>
+          <div style="margin-top:16px">
+            <div class="form-group">
+              <label class="form-label">Colaborador</label>
+              ${selectRev}
+            </div>
+            <button class="btn btn-danger mt-12" onclick="revocarCertificado()">Revocar certificado</button>
+            <div id="cert-rev-result" class="hidden mt-12"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Verificación</div>
+          <div class="card-sub">Verificar si un colaborador tiene certificado activo.</div>
+          <div style="margin-top:16px">
+            <div class="form-group">
+              <label class="form-label">Colaborador</label>
+              <select class="form-select" id="cert-ver-id">
+                <option value="">Selecciona un colaborador...</option>
+                ${options}
+              </select>
+            </div>
+            <button class="btn btn-ghost mt-12" onclick="verificarCertificado()">Verificar</button>
+            <div id="cert-ver-result" class="hidden mt-12"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Repositorio de claves</div>
+          <div class="card-sub">Directorio de certificados activos en el sistema.</div>
+          <div id="cert-repo" style="margin-top:16px">
+            <button class="btn btn-ghost" onclick="cargarRepositorio()">Ver repositorio</button>
+          </div>
+        </div>
+
       </div>
     </div>`;
 }
@@ -1109,6 +1158,88 @@ async function revokeUserNotif(id, btn) {
     if (row) row.style.opacity = '0.4';
   } catch(e) { toast(e.message, true); }
   finally { setLoading(btn, false, 'Rechazar'); }
+}
+
+async function generarCertificado() {
+  const usuario_id = document.getElementById('cert-usuario-id').value.trim();
+  const result = document.getElementById('cert-gen-result');
+  if (!usuario_id) { result.innerHTML = `<div class="alert alert-danger">ID del colaborador requerido</div>`; result.classList.remove('hidden'); return; }
+  try {
+    const data = await API.post('/api/certificados/generar', { usuario_id });
+    result.innerHTML = `
+    <div class="alert alert-success">
+      <div><b>Certificado generado correctamente.</b></div>
+      <div class="mt-12"><a href="${esc(data.link_descarga)}" download="certificado_casamonarca.zip" class="btn btn-primary btn-sm">Descargar certificado</a></div>
+      <div style="font-size:11px;color:var(--muted);margin-top:6px">El link expira en 24 horas</div>
+    </div>`;
+  } catch(e) {
+    result.innerHTML = `<div class="alert alert-danger">${esc(e.message)}</div>`;
+  }
+  result.classList.remove('hidden');
+}
+
+async function revocarCertificado() {
+  const usuario_id = document.getElementById('cert-revocar-id').value.trim();
+  const result = document.getElementById('cert-rev-result');
+  if (!usuario_id) { result.innerHTML = `<div class="alert alert-danger">ID del colaborador requerido</div>`; result.classList.remove('hidden'); return; }
+  if (!confirm('¿Estás segura de que deseas revocar el certificado de este colaborador?')) return;
+  try {
+    const data = await API.post('/api/certificados/revocar', { usuario_id });
+    result.innerHTML = `<div class="alert alert-success">${esc(data.mensaje)}</div>`;
+  } catch(e) {
+    result.innerHTML = `<div class="alert alert-danger">${esc(e.message)}</div>`;
+  }
+  result.classList.remove('hidden');
+}
+
+async function verificarCertificado() {
+  const usuario_id = document.getElementById('cert-ver-id').value.trim();
+  const result     = document.getElementById('cert-ver-result');
+  if (!usuario_id) { 
+    result.innerHTML = `<div class="alert alert-danger">Selecciona un colaborador</div>`; 
+    result.classList.remove('hidden'); 
+    return; 
+  }
+  try {
+    const data = await API.post('/api/certificados/verificar', { usuario_id });
+    if (data.status === 'valido') {
+      result.innerHTML = `
+        <div class="alert alert-success">
+          <div>Certificado válido y activo</div>
+          <div class="mt-8"><b>Titular:</b> ${esc(data.titular.nombre)} — ${esc(data.titular.area)} · Nivel ${data.titular.nivel}</div>
+          <div class="mt-8"><b>Expira:</b> ${esc(data.certificado.fecha_expiracion)}</div>
+          <div class="mt-8"><b>Hash (verificación externa):</b></div>
+          <div class="mono mt-8" style="word-break:break-all;font-size:11px">${esc(data.certificado.hash)}</div>
+        </div>`;
+    } else {
+      result.innerHTML = `<div class="alert alert-danger">Sin certificado activo o expirado</div>`;
+    }
+  } catch(e) {
+    result.innerHTML = `<div class="alert alert-danger">${esc(e.message)}</div>`;
+  }
+  result.classList.remove('hidden');
+}
+
+async function cargarRepositorio() {
+  const repo = document.getElementById('cert-repo');
+  try {
+    const data = await API.get('/api/usuarios/listar?activo=1');
+    if (!data.length) { repo.innerHTML = `<div style="font-size:13px;color:var(--muted)">Sin certificados activos</div>`; return; }
+    repo.innerHTML = `
+      <table class="data-table">
+        <thead><tr><th>Colaborador</th><th>Área</th><th>Nivel</th></tr></thead>
+        <tbody>
+          ${data.map(u => `
+            <tr>
+              <td><div style="font-weight:500">${esc(u.nombre)}</div><div class="text-xs muted">${esc(u.email)}</div></td>
+              <td>${esc(u.area)}</td>
+              <td><span class="badge role-${u.nivel}">${ROLES[u.nivel]?.label||'Nivel '+u.nivel}</span></td>
+            </tr>`).join('')}
+        </tbody>
+      </table>`;
+  } catch(e) {
+    repo.innerHTML = `<div class="alert alert-danger">${esc(e.message)}</div>`;
+  }
 }
 
 /* ════════════════════════════════════════
@@ -1261,7 +1392,8 @@ const iPlus  = () => `<svg width="13" height="13" viewBox="0 0 16 16" fill="none
       /* We don't know the current user's details from just the token,
          so we fall back to a minimal session. Add GET /api/auth/me.php
          to return the logged-in user's info for proper auto-login. */
-      SESSION = { id: null, nombre: 'Usuario', email: '', nivel: 1, area: 'Sistema' };
+      const me = await API.get('/api/auth/me');
+      SESSION = me.usuario;
       enterApp();
     } catch {
       localStorage.removeItem('cm_token');
