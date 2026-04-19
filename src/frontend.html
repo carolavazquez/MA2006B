@@ -567,7 +567,7 @@ async function doRegister() {
 
   setLoading(btn, true);
   try {
-    await API.post('/api/usuarios/registrar.php', {
+    await API.post('/api/auth/registro', {
       nombre: first + ' ' + last,
       email, nivel: parseInt(nivel), area, password: pass
     });
@@ -578,7 +578,7 @@ async function doRegister() {
     document.getElementById('r-nivel').value = '';
   } catch (e) {
     const msg = e.message.includes('404')
-      ? 'El endpoint de registro aún no existe en el backend (POST /api/usuarios/registrar.php). Pídele al equipo de backend que lo implemente.'
+      ? 'El endpoint de registro aún no existe en el backend (POST /api/auth/registro). Pídele al equipo de backend que lo implemente.'
       : e.message;
     showErr(errEl, msg);
   } finally {

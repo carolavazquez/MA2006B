@@ -28,6 +28,75 @@ class AuthController {
         return ['status' => 'ok', 'usuario' => $usuario];
     }
 
+    public function registro()
+    {
+        header('Content-Type: application/json');
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            return $this->error(405, 'Método no permitido');
+        }
+
+        $body = json_decode(file_get_contents('php://input'), true);
+
+        $nombre = $body['nombre'] ?? '';
+        $email = $body['email'] ?? '';
+        $password = $body['password'] ?? '';
+        $area = $body['area'] ?? '';
+        $nivel = $body['nivel'] ?? 3;
+
+        if (!$nombre || !$email || !$password || !$area) {
+            return $this->error(400, 'nombre, email, password y area son requeridos');
+        }
+
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return $this->error(400, 'Email inválido');
+        }
+
+        $areas_validas = ['Humanitaria', 'PsicoSocial', 'Legal', 'Comunicacion', 'Almacen', 'TI'];
+        if (!in_array($area, $areas_validas)) {
+            return $this->error(400, 'Área inválida');
+        }
+
+        if (!in_array((int) $nivel, [2, 3, 4])) {
+            return $this->error(400, 'Nivel inválido');
+        }
+
+        $stmt = $this->db->prepare("SELECT id FROM usuarios WHERE email = ?");
+        $stmt->execute([$email]);
+        if ($stmt->fetch()) {
+            return $this->error(409, 'Ya existe una cuenta con ese correo');
+        }
+
+        $id = sprintf(
+            '%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
+            mt_rand(0, 0xffff),
+            mt_rand(0, 0xffff),
+            mt_rand(0, 0xffff),
+            mt_rand(0, 0x0fff) | 0x4000,
+            mt_rand(0, 0x3fff) | 0x8000,
+            mt_rand(0, 0xffff),
+            mt_rand(0, 0xffff),
+            mt_rand(0, 0xffff)
+        );
+
+        $password_hash = password_hash($password, PASSWORD_BCRYPT);
+
+        $this->db->prepare("
+        INSERT INTO usuarios (id, nombre, email, password_hash, nivel, area, activo)
+        VALUES (?, ?, ?, ?, ?, ?, 0)
+    ")->execute([$id, $nombre, $email, $password_hash, $nivel, $area]);
+
+        $this->db->prepare("
+        INSERT INTO bitacora (id, usuario_id, accion, tabla_afectada, registro_id)
+        VALUES (UUID(), ?, 'REGISTRO_COLABORADOR', 'usuarios', ?)
+    ")->execute([$id, $id]);
+
+        return [
+            'status' => 'ok',
+            'mensaje' => 'Solicitud de registro enviada. Un administrador revisará tu cuenta pronto.'
+        ];
+    }
+
     public function verificarCertificado()
     {
         header('Content-Type: application/json');

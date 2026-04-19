@@ -57,6 +57,10 @@ switch ($resource) {
             case 'login':
                 require_once __DIR__ . '/../auth/login.php';
                 break;
+
+            case 'registro':
+                echo json_encode($controller->registro());
+                break;
         }
         break;
 
