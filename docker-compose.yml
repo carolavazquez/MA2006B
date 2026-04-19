@@ -5,6 +5,7 @@ services:
       - "8080:80"
     volumes:
       - ./src:/var/www/html
+      - certificados_data:/var/certificados
     depends_on:
       - db
 
@@ -29,3 +30,4 @@ services:
 
 volumes:
   db_data:
+  certificados_data:

@@ -204,13 +204,14 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
           <label class="form-label">Contraseña</label>
           <input class="form-input" type="password" id="l-pass" placeholder="••••••••" autocomplete="current-password">
         </div>
-        <!-- PKI PLACEHOLDER -->
-        <div style="margin-top:14px;padding:12px 14px;border-radius:var(--radius-sm);border:1px dashed var(--border2);background:var(--bg)">
-          <div style="font-size:11px;font-weight:500;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em">E.firma / Certificado digital</div>
-          <div class="cert-ph" style="padding:12px;border-style:dashed">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" style="width:22px;height:22px;margin-bottom:4px"><path d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
-            <div style="font-size:11px;color:var(--hint)">Autenticación PKI — pendiente de implementación</div>
+        <!-- PKI CERTIFICADO -->
+        <div id="pki-block" class="hidden" style="margin-top:14px;padding:12px 14px;border-radius:var(--radius-sm);border:1px dashed var(--border2);background:var(--bg)">
+          <div style="font-size:11px;font-weight:500;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em">E.firma / Certificado digital</div>
+          <div class="form-group">
+            <label class="form-label" style="font-size:12px">Sube tu archivo <code style="font-size:11px;background:var(--bg);padding:1px 5px;border-radius:3px">.crt</code></label>
+            <input class="form-input" type="file" id="l-cert" accept=".crt,.pem" style="padding:6px 12px;height:auto">
           </div>
+          <div id="pki-err" class="alert alert-danger hidden mt-8"></div>
         </div>
         <button class="btn btn-primary w-full mt-16" style="height:42px;font-size:14px" id="btn-login" onclick="doLogin()">
           Iniciar sesión
@@ -479,24 +480,62 @@ async function doLogin() {
 
   setLoading(btn, true);
   try {
-    const data = await API.post('/auth/login.php', { email, password: pass });
+    const data = await API.post('/api/auth/login', { email, password: pass });
     API.token = data.token;
     localStorage.setItem('cm_token', data.token);
 
-    /* Store session info — adapt field names to whatever the login response returns */
-    SESSION = {
-      id:     data.id     || data.usuario_id || null,
-      nombre: data.nombre || data.name       || email.split('@')[0],
-      email:  data.email  || email,
-      nivel:  parseInt(data.nivel || data.level || 1),
-      area:   data.area   || 'Sistema',
-    };
+    const me = await API.get('/api/auth/me');
+    SESSION = me.usuario;
+
+    if (parseInt(SESSION.nivel) > 1) {
+      // Colaborador nivel 2, 3 o 4 — pedir certificado
+      setLoading(btn, false, 'Iniciar sesión');
+      showCertLogin();
+      return;
+    }
 
     enterApp();
   } catch (e) {
     showErr(errEl, e.message || 'Credenciales incorrectas.');
   } finally {
     setLoading(btn, false, 'Iniciar sesión');
+  }
+}
+
+function showCertLogin() {
+  document.getElementById('pki-block').classList.remove('hidden');
+  document.getElementById('btn-login').textContent = 'Verificar certificado y entrar';
+  document.getElementById('btn-login').onclick = doCertLogin;
+}
+
+async function doCertLogin() {
+  const certFile = document.getElementById('l-cert').files[0];
+  const errEl    = document.getElementById('pki-err');
+  const btn      = document.getElementById('btn-login');
+
+  errEl.classList.add('hidden');
+  if (!certFile) { showErr(errEl, 'Sube tu archivo .crt para continuar.'); return; }
+
+  setLoading(btn, true);
+  try {
+    const formData = new FormData();
+    formData.append('usuario_id', SESSION.id);
+    formData.append('certificado', certFile);
+
+    const r = await fetch(BASE_URL + '/api/auth/verificar-certificado', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + API.token },
+      body: formData
+    });
+
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Certificado inválido');
+
+    enterApp();
+  } catch(e) {
+    showErr(errEl, e.message);
+  } finally {
+    setLoading(btn, false, 'Verificar certificado y entrar');
   }
 }
 
