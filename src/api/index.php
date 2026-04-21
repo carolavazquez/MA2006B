@@ -64,6 +64,22 @@ switch ($resource) {
         }
         break;
 
+    case 'documentos':
+    require_once __DIR__ . '/../controllers/DocumentosController.php';
+    $controller = new DocumentosController();
+    switch ($action) {
+        case 'listar':  echo json_encode($controller->listar());  break;
+        case 'ver':     echo json_encode($controller->ver());     break;
+        case 'crear':   echo json_encode($controller->crear());   break;
+        case 'editar':  echo json_encode($controller->editar());  break;
+        case 'firmar':  echo json_encode($controller->firmar());  break;
+        case 'autorizar':         echo json_encode($controller->autorizar());         break;
+        case 'listar-autorizados': echo json_encode($controller->listarAutorizados()); break;
+        default: http_response_code(404); echo json_encode(['error' => 'Acción no encontrada']); break;
+    }
+
+    break;
+
 
     default:
         http_response_code(404);
