@@ -156,6 +156,51 @@ class UsuariosController {
         return ['status' => 'ok', 'mensaje' => 'Acceso revocado.', 'usuario_afectado' => $usuario['email']];
     }
 
+    public function crearEspejo()
+    {
+        $admin = verificarAcceso(1);
+
+        $stmt = $this->db->prepare("
+        SELECT * FROM usuarios WHERE espejo_de = ? AND es_espejo = 1
+    ");
+        $stmt->execute([$admin['sub']]);
+        if ($stmt->fetch()) {
+            return $this->error(409, 'Ya existe una cuenta espejo para este administrador');
+        }
+
+        $id = $this->uuid();
+        $password_temporal = bin2hex(random_bytes(8));
+        $password_hash = password_hash($password_temporal, PASSWORD_BCRYPT);
+
+        $stmt = $this->db->prepare("SELECT * FROM usuarios WHERE id = ?");
+        $stmt->execute([$admin['sub']]);
+        $admin_data = $stmt->fetch();
+
+        $this->db->prepare("
+        INSERT INTO usuarios (id, nombre, email, password_hash, nivel, area, activo, es_espejo, espejo_de)
+        VALUES (?, ?, ?, ?, 1, ?, 1, 1, ?)
+    ")->execute([
+                    $id,
+                    '[ESPEJO] ' . $admin_data['nombre'],
+                    'espejo.' . $admin_data['email'],
+                    $password_hash,
+                    $admin_data['area'],
+                    $admin['sub']
+                ]);
+
+        $this->bitacora($admin['sub'], 'CREAR_ESPEJO', 'usuarios', $id);
+
+        return [
+            'status' => 'ok',
+            'mensaje' => 'Cuenta espejo creada correctamente.',
+            'credenciales' => [
+                'email' => 'espejo.' . $admin_data['email'],
+                'password_temporal' => $password_temporal
+            ],
+            'aviso' => 'La cuenta espejo tiene acceso de solo lectura. Guarda estas credenciales en un lugar seguro.'
+        ];
+    }
+
     private function bitacora($usuario_id, $accion, $tabla, $registro_id) {
         $this->db->prepare("INSERT INTO bitacora (id, usuario_id, accion, tabla_afectada, registro_id) VALUES (UUID(), ?, ?, ?, ?)")
             ->execute([$usuario_id, $accion, $tabla, $registro_id]);

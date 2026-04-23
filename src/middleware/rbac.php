@@ -37,5 +37,20 @@ function verificarAcceso($nivel_requerido, $area_requerida = null) {
         }
     }
 
+    // Verificar si es cuenta espejo — solo lectura
+    if ($payload) {
+        $db = getDB();
+        $stmt = $db->prepare("SELECT es_espejo FROM usuarios WHERE id = ?");
+        $stmt->execute([$payload['sub']]);
+        $usuario = $stmt->fetch();
+
+        if ($usuario && $usuario['es_espejo'] && $_SERVER['REQUEST_METHOD'] === 'POST') {
+            http_response_code(403);
+            die(json_encode([
+                'error' => 'Cuenta de solo lectura. Esta cuenta espejo no puede ejecutar acciones.'
+            ]));
+        }
+    }
+
     return $payload;
 }

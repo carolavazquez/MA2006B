@@ -487,8 +487,8 @@ async function doLogin() {
     const me = await API.get('/api/auth/me');
     SESSION = me.usuario;
 
-    if (parseInt(SESSION.nivel) > 1) {
-      // Colaborador nivel 2, 3 o 4 — pedir certificado
+    if (parseInt(SESSION.nivel) == 2) {
+      // Colaborador nivel 2 pedir certificado
       setLoading(btn, false, 'Iniciar sesión');
       showCertLogin();
       return;

@@ -20,6 +20,7 @@ switch ($resource) {
             case 'activar':  echo json_encode($controller->activar()); break;
             case 'editar':   echo json_encode($controller->editar());  break;
             case 'revocar':  echo json_encode($controller->revocar()); break;
+            case 'crear-espejo': echo json_encode($controller->crearEspejo()); break;
             default: http_response_code(404); echo json_encode(['error' => 'Acción no encontrada']); break;
         }
         break;
