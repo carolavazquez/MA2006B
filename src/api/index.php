@@ -76,9 +76,21 @@ switch ($resource) {
         case 'firmar':  echo json_encode($controller->firmar());  break;
         case 'autorizar':         echo json_encode($controller->autorizar());         break;
         case 'listar-autorizados': echo json_encode($controller->listarAutorizados()); break;
+        case 'mover': echo json_encode($controller->mover()); break;
         default: http_response_code(404); echo json_encode(['error' => 'Acción no encontrada']); break;
     }
 
+    break;
+
+    case 'carpetas':
+    require_once __DIR__ . '/../controllers/CarpetasController.php';
+    $controller = new CarpetasController();
+    switch ($action) {
+        case 'listar':   echo json_encode($controller->listar());   break;
+        case 'crear':    echo json_encode($controller->crear());    break;
+        case 'eliminar': echo json_encode($controller->eliminar()); break;
+        default: http_response_code(404); echo json_encode(['error' => 'Acción no encontrada']); break;
+    }
     break;
 
 

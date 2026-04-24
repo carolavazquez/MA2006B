@@ -31,6 +31,15 @@ class DocumentosController {
             $valores[] = $_GET['area'];
         }
 
+        if (isset($_GET['carpeta_id'])) {
+            if ($_GET['carpeta_id'] === 'sin-clasificar') {
+                $filtros[] = "d.carpeta_id IS NULL";
+            } else {
+                $filtros[] = "d.carpeta_id = ?";
+                $valores[] = $_GET['carpeta_id'];
+            }
+        }
+
         $where = count($filtros) > 0 ? "WHERE " . implode(" AND ", $filtros) : "";
 
         $stmt = $this->db->prepare("
@@ -74,9 +83,10 @@ class DocumentosController {
     public function crear() {
         $payload = verificarAcceso(3);
 
-        $nombre   = $_POST['nombre']   ?? '';
-        $area     = $_POST['area']     ?? $payload['area'];
+        $nombre = $_POST['nombre'] ?? '';
+        $area = $_POST['area'] ?? $payload['area'];
         $contenido_texto = $_POST['contenido_texto'] ?? '';
+        $carpeta_id = $_POST['carpeta_id'] ?? null;
 
         if (!$nombre) return $this->error(400, 'nombre es requerido');
         if ($payload['nivel'] > 1 && $area !== $payload['area']) {
@@ -100,15 +110,15 @@ class DocumentosController {
         $id = $this->uuid();
 
         $this->db->prepare("
-            INSERT INTO documentos 
-            (id, area, autor_id, nombre, contenido_cifrado, contenido_texto, 
-             archivo_nombre, archivo_tipo, estado, version)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'activo', 1)
-        ")->execute([
-            $id, $area, $payload['sub'], $nombre,
-            $contenido_cifrado, $contenido_texto,
-            $archivo_nombre, $archivo_tipo
-        ]);
+        INSERT INTO documentos 
+        (id, area, autor_id, nombre, contenido_cifrado, contenido_texto, 
+        archivo_nombre, archivo_tipo, estado, version, carpeta_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'activo', 1, ?)
+    ")->execute([
+        $id, $area, $payload['sub'], $nombre,
+        $contenido_cifrado, $contenido_texto,
+        $archivo_nombre, $archivo_tipo, $carpeta_id
+    ]);
 
         $this->bitacora($payload['sub'], 'CREAR_DOCUMENTO', 'documentos', $id);
 
@@ -266,6 +276,44 @@ class DocumentosController {
         $stmt->execute([$payload['sub']]);
 
         return ['status' => 'ok', 'documentos' => $stmt->fetchAll()];
+    }
+
+    public function mover()
+    {
+        $payload = verificarAcceso(2);
+        $body = json_decode(file_get_contents('php://input'), true);
+
+        $id = $body['id'] ?? '';
+        $carpeta_id = $body['carpeta_id'] ?? null;
+
+        if (!$id)
+            return $this->error(400, 'id es requerido');
+
+        $stmt = $this->db->prepare("SELECT * FROM documentos WHERE id = ?");
+        $stmt->execute([$id]);
+        $doc = $stmt->fetch();
+
+        if (!$doc)
+            return $this->error(404, 'Documento no encontrado');
+        if ($payload['nivel'] > 1 && $doc['area'] !== $payload['area']) {
+            return $this->error(403, 'No tienes acceso a este documento');
+        }
+
+        if ($carpeta_id) {
+            $stmt = $this->db->prepare("SELECT id, area FROM carpetas WHERE id = ?");
+            $stmt->execute([$carpeta_id]);
+            $carpeta = $stmt->fetch();
+            if (!$carpeta)
+                return $this->error(404, 'Carpeta no encontrada');
+            if ($payload['nivel'] > 1 && $carpeta['area'] !== $payload['area']) {
+                return $this->error(403, 'No puedes mover documentos a otra área');
+            }
+        }
+
+        $this->db->prepare("UPDATE documentos SET carpeta_id = ? WHERE id = ?")->execute([$carpeta_id, $id]);
+        $this->bitacora($payload['sub'], 'MOVER_DOCUMENTO', 'documentos', $id);
+
+        return ['status' => 'ok', 'mensaje' => 'Documento movido correctamente.'];
     }
 
     private function bitacora($usuario_id, $accion, $tabla, $registro_id) {

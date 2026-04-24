@@ -621,12 +621,24 @@ function buildSidebar() {
       { id: 'users',   icon: iUsers, label: 'Colaboradores' },
       { id: 'notifs',  icon: iBell,  label: 'Solicitudes', notif: true },
       { id: 'certs',   icon: iKey,   label: 'Certificados' },
+      { id: 'docs',    icon: iList,  label: 'Documentos' },
       { id: 'audit',   icon: iList,  label: 'Auditoría' },
     ]});
   }
   if (n === 2) {
-    sections.push({ label: 'Mi equipo', items: [
+    sections.push({ label: 'Mi área', items: [
       { id: 'users', icon: iUsers, label: 'Colaboradores del área' },
+      { id: 'docs',  icon: iList,  label: 'Documentos' },
+    ]});
+  }
+  if (n === 3) {
+    sections.push({ label: 'Mi área', items: [
+      { id: 'docs', icon: iList, label: 'Documentos' },
+    ]});
+  }
+  if (n === 4) {
+    sections.push({ label: 'Mis documentos', items: [
+      { id: 'docs', icon: iList, label: 'Documentos autorizados' },
     ]});
   }
 
@@ -659,6 +671,7 @@ function navigateTo(page) {
     certs:     renderCerts,
     audit:     renderAudit,
     profile:   renderProfile,
+    docs:     renderDocumentos,
   };
   if (pages[page]) pages[page]();
 }
@@ -773,6 +786,75 @@ function renderHome() {
         </div>
       </div>
     </div>`;
+}
+
+
+/* ════════════════════════════════════════
+   FIRMA DIGITAL DE DOCUMENTOS
+════════════════════════════════════════ */
+async function firmarDocumento(documentoId, contenido) {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.key,.pem';
+  
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    try {
+      const pemKey = await file.text();
+      const firma = await generarFirma(pemKey, contenido);
+      
+      const formData = new FormData();
+      formData.append('id', documentoId);
+      formData.append('firma', firma);
+
+      const r = await fetch(BASE_URL + '/api/documentos/firmar', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + API.token },
+        body: formData
+      });
+
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || 'Error al firmar');
+      
+      toast('Documento firmado correctamente.');
+      renderDocumentos();
+    } catch(e) {
+      toast('Error: ' + e.message, true);
+    }
+  };
+
+  input.click();
+}
+
+async function generarFirma(pemKey, contenido) {
+  // Limpiar el PEM y convertir a ArrayBuffer
+  const pemLimpio = pemKey
+    .replace('-----BEGIN PRIVATE KEY-----', '')
+    .replace('-----END PRIVATE KEY-----', '')
+    .replace('-----BEGIN RSA PRIVATE KEY-----', '')
+    .replace('-----END RSA PRIVATE KEY-----', '')
+    .replace(/\s/g, '');
+
+  const keyBuffer = Uint8Array.from(atob(pemLimpio), c => c.charCodeAt(0)).buffer;
+
+  // Importar la clave privada
+  const cryptoKey = await crypto.subtle.importKey(
+    'pkcs8',
+    keyBuffer,
+    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+
+  // Firmar el contenido
+  const encoder = new TextEncoder();
+  const data = encoder.encode(contenido);
+  const firma = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', cryptoKey, data);
+
+  // Convertir a Base64
+  return btoa(String.fromCharCode(...new Uint8Array(firma)));
 }
 
 /* ════════════════════════════════════════
@@ -1146,6 +1228,341 @@ function renderProfile() {
       </div>
     </div>`;
 }
+
+
+/* ════════════════════════════════════════
+   PAGE: DOCUMENTOS
+════════════════════════════════════════ */
+async function renderDocumentos(carpetaId = null, carpetaNombre = null) {
+  const main = document.getElementById('main');
+  main.innerHTML = `
+    <div class="page-head">
+      <h1>${carpetaNombre ? esc(carpetaNombre) : 'Documentos'}</h1>
+      <p>${carpetaNombre ? 'Documentos en esta carpeta' : 'Repositorio de documentos por área'}</p>
+    </div>
+    <div class="page-body">
+      <div id="doc-content">
+        <div style="text-align:center;padding:40px;color:var(--muted)">Cargando...</div>
+      </div>
+    </div>
+
+    <!-- Modal nueva carpeta -->
+    <div id="modal-nueva-carpeta" class="modal-backdrop hidden">
+      <div class="modal" style="max-width:400px">
+        <div class="modal-head">
+          <div class="modal-title">Nueva carpeta</div>
+          <button class="modal-close" onclick="closeModal('modal-nueva-carpeta')">×</button>
+        </div>
+        <div id="ncarp-err" class="alert alert-danger hidden mt-8"></div>
+        <div class="form-group mt-12">
+          <label class="form-label">Nombre de la carpeta *</label>
+          <input id="ncarp-nombre" class="form-input" placeholder="Ej. Contratos"/>
+        </div>
+        ${SESSION.nivel === 1 ? `
+        <div class="form-group mt-12">
+          <label class="form-label">Área</label>
+          <select id="ncarp-area" class="form-select">
+            <option value="Humanitaria">Humanitaria</option>
+            <option value="PsicoSocial">PsicoSocial</option>
+            <option value="Legal">Legal</option>
+            <option value="Comunicacion">Comunicación</option>
+            <option value="Almacen">Almacén</option>
+            <option value="TI">TI</option>
+          </select>
+        </div>` : ''}
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px">
+          <button class="btn btn-ghost" onclick="closeModal('modal-nueva-carpeta')">Cancelar</button>
+          <button class="btn btn-primary" id="btn-nueva-carpeta" onclick="guardarNuevaCarpeta()">Crear carpeta</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal nuevo documento -->
+    <div id="modal-nuevo-doc" class="modal-backdrop hidden">
+      <div class="modal" style="max-width:520px">
+        <div class="modal-head">
+          <div class="modal-title">Nuevo documento</div>
+          <button class="modal-close" onclick="closeModal('modal-nuevo-doc')">×</button>
+        </div>
+        <div id="ndoc-err" class="alert alert-danger hidden mt-8"></div>
+        <div class="form-group mt-12">
+          <label class="form-label">Nombre del documento *</label>
+          <input id="ndoc-nombre" class="form-input" placeholder="Ej. Contrato de servicio"/>
+        </div>
+        <div class="form-group mt-12">
+          <label class="form-label">Contenido de texto</label>
+          <textarea id="ndoc-texto" class="form-input" rows="5" style="height:auto;padding:10px" placeholder="Redacta el contenido..."></textarea>
+        </div>
+        <div class="form-group mt-12">
+          <label class="form-label">Archivo adjunto</label>
+          <input id="ndoc-archivo" class="form-input" type="file" style="padding:6px 12px;height:auto"/>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px">
+          <button class="btn btn-ghost" onclick="closeModal('modal-nuevo-doc')">Cancelar</button>
+          <button class="btn btn-primary" id="btn-nuevo-doc" onclick="guardarNuevoDoc('${carpetaId}')">Crear documento</button>
+        </div>
+      </div>
+    </div>`;
+
+  if (carpetaId) {
+    await cargarDocumentosDeCarpeta(carpetaId, carpetaNombre);
+  } else {
+    await cargarCarpetas();
+  }
+}
+
+async function cargarCarpetas() {
+  const content = document.getElementById('doc-content');
+  try {
+    const data = await API.get('/api/carpetas/listar');
+    const carpetas = data.carpetas || [];
+
+    const puedeCrearCarpeta = SESSION.nivel <= 2;
+
+    content.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px">
+        ${carpetas.map(c => `
+          <div class="card" style="cursor:pointer;transition:box-shadow .15s" 
+               onmouseover="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)'"
+               onmouseout="this.style.boxShadow=''"
+               onclick="renderDocumentos('${c.id}', '${esc(c.nombre)}')">
+            <div style="font-size:32px;margin-bottom:8px">📁</div>
+            <div style="font-weight:500;font-size:14px">${esc(c.nombre)}</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:4px">${esc(c.area)}</div>
+            <div style="font-size:11px;color:var(--hint);margin-top:6px">${c.total_documentos} documento${c.total_documentos !== 1 ? 's' : ''}</div>
+            ${SESSION.nivel === 1 ? `
+              <button class="btn btn-danger btn-sm" style="margin-top:10px;width:100%" 
+                      onclick="event.stopPropagation();eliminarCarpeta('${c.id}')">Eliminar</button>` : ''}
+          </div>`).join('')}
+        ${puedeCrearCarpeta ? `
+          <div class="card" style="cursor:pointer;border-style:dashed;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:130px;color:var(--muted)"
+               onclick="openModal('modal-nueva-carpeta')">
+            <div style="font-size:28px">+</div>
+            <div style="font-size:13px;margin-top:6px">Nueva carpeta</div>
+          </div>` : ''}
+      </div>`;
+  } catch(e) {
+    content.innerHTML = `<div class="alert alert-danger">${esc(e.message)}</div>`;
+  }
+}
+
+async function cargarDocumentosDeCarpeta(carpetaId, carpetaNombre) {
+  const content = document.getElementById('doc-content');
+  try {
+    const data = await API.get('/api/documentos/listar?carpeta_id=' + carpetaId);
+    const docs = data.documentos || [];
+
+    content.innerHTML = `
+      <div style="margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
+        <button class="btn btn-ghost btn-sm" onclick="renderDocumentos()">← Volver</button>
+        ${SESSION.nivel <= 3 ? `<button class="btn btn-primary btn-sm" onclick="openModal('modal-nuevo-doc')">+ Nuevo documento</button>` : ''}
+      </div>
+      ${!docs.length 
+        ? `<div style="text-align:center;padding:40px;color:var(--muted);font-size:13px">Sin documentos en esta carpeta</div>`
+        : `<table class="data-table">
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Autor</th>
+                <th>Estado</th>
+                <th>Firma</th>
+                <th>Versión</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${docs.map(d => `
+                <tr>
+                  <td><div style="font-weight:500">${esc(d.nombre)}</div><div class="text-xs muted">${d.creado_en}</div></td>
+                  <td><div style="font-size:13px">${esc(d.autor_nombre)}</div></td>
+                  <td><span class="badge ${d.estado === 'activo' ? 'badge-green' : d.estado === 'cerrado' ? 'badge-red' : 'badge-gray'}">${d.estado}</span></td>
+                  <td>${d.firma_digital 
+                    ? '<span class="badge badge-green">Firmado</span>' 
+                    : '<span class="badge badge-amber">Pendiente</span>'}</td>
+                  <td>v${d.version}</td>
+                  <td>
+                    <div style="display:flex;gap:6px">
+                      <button class="btn btn-ghost btn-sm" onclick="verDocumento('${d.id}')">Ver</button>
+                      ${SESSION.nivel <= 3 && !d.firma_digital ? `<button class="btn btn-primary btn-sm" onclick="firmarDocumento('${d.id}', ${JSON.stringify(d.contenido_texto || d.nombre)})">Firmar</button>` : ''}
+                    </div>
+                  </td>
+                </tr>`).join('')}
+            </tbody>
+          </table>`}`;
+  } catch(e) {
+    content.innerHTML = `<div class="alert alert-danger">${esc(e.message)}</div>`;
+  }
+}
+
+async function guardarNuevaCarpeta() {
+  const nombre = document.getElementById('ncarp-nombre').value.trim();
+  const area   = SESSION.nivel === 1 
+    ? document.getElementById('ncarp-area').value 
+    : SESSION.area;
+  const errEl  = document.getElementById('ncarp-err');
+  const btn    = document.getElementById('btn-nueva-carpeta');
+
+  errEl.classList.add('hidden');
+  if (!nombre) { showErr(errEl, 'El nombre es requerido'); return; }
+
+  setLoading(btn, true);
+  try {
+    await API.post('/api/carpetas/crear', { nombre, area });
+    toast('Carpeta creada correctamente.');
+    closeModal('modal-nueva-carpeta');
+    document.getElementById('ncarp-nombre').value = '';
+    await cargarCarpetas();
+  } catch(e) {
+    showErr(errEl, e.message);
+  } finally {
+    setLoading(btn, false, 'Crear carpeta');
+  }
+}
+
+async function eliminarCarpeta(id) {
+  if (!confirm('¿Eliminar esta carpeta? Solo se puede si está vacía.')) return;
+  try {
+    await API.post('/api/carpetas/eliminar', { id });
+    toast('Carpeta eliminada.');
+    await cargarCarpetas();
+  } catch(e) {
+    toast('Error: ' + e.message, true);
+  }
+}
+
+async function guardarNuevoDoc(carpetaId) {
+  const nombre  = document.getElementById('ndoc-nombre').value.trim();
+  const texto   = document.getElementById('ndoc-texto').value.trim();
+  const archivo = document.getElementById('ndoc-archivo').files[0];
+  const errEl   = document.getElementById('ndoc-err');
+  const btn     = document.getElementById('btn-nuevo-doc');
+
+  errEl.classList.add('hidden');
+  if (!nombre) { showErr(errEl, 'El nombre es requerido'); return; }
+  if (!texto && !archivo) { showErr(errEl, 'Debes incluir texto o un archivo'); return; }
+
+  setLoading(btn, true);
+  try {
+    const formData = new FormData();
+    formData.append('nombre', nombre);
+    if (texto)     formData.append('contenido_texto', texto);
+    if (archivo)   formData.append('archivo', archivo);
+    if (carpetaId) formData.append('carpeta_id', carpetaId);
+
+    const r = await fetch(BASE_URL + '/api/documentos/crear', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + API.token },
+      body: formData
+    });
+
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Error al crear documento');
+
+    toast('Documento creado correctamente.');
+    closeModal('modal-nuevo-doc');
+    document.getElementById('ndoc-nombre').value = '';
+    document.getElementById('ndoc-texto').value = '';
+    await cargarDocumentosDeCarpeta(carpetaId, '');
+  } catch(e) {
+    showErr(errEl, e.message);
+  } finally {
+    setLoading(btn, false, 'Crear documento');
+  }
+}
+
+async function verDocumento(id) {
+  try {
+    const data = await API.get('/api/documentos/ver?id=' + id);
+    const d = data.documento;
+
+    const modal = document.createElement('div');
+    modal.className = 'modal-bd';
+    modal.id = 'modal-ver-doc';
+    modal.innerHTML = `
+      <div class="modal" style="max-width:600px">
+        <div class="modal-head">
+          <div class="modal-title">${esc(d.nombre)}</div>
+          <button class="modal-close" onclick="document.getElementById('modal-ver-doc').remove()">×</button>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px">
+          <div><div class="text-xs muted">Área</div><div style="font-size:13px;margin-top:2px">${esc(d.area)}</div></div>
+          <div><div class="text-xs muted">Autor</div><div style="font-size:13px;margin-top:2px">${esc(d.autor_nombre)}</div></div>
+          <div><div class="text-xs muted">Estado</div><div style="margin-top:2px"><span class="badge ${d.estado === 'activo' ? 'badge-green' : 'badge-gray'}">${d.estado}</span></div></div>
+          <div><div class="text-xs muted">Versión</div><div style="font-size:13px;margin-top:2px">v${d.version}</div></div>
+          <div><div class="text-xs muted">Firma digital</div><div style="margin-top:2px"><span class="badge ${d.firma_digital ? 'badge-green' : 'badge-amber'}">${d.firma_digital ? 'Firmado' : 'Pendiente'}</span></div></div>
+          <div><div class="text-xs muted">Creado</div><div style="font-size:13px;margin-top:2px">${d.creado_en}</div></div>
+        </div>
+        ${d.contenido_texto ? `
+          <div style="margin-top:16px">
+            <div class="text-xs muted" style="margin-bottom:6px">Contenido</div>
+            <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;font-size:13px;white-space:pre-wrap">${esc(d.contenido_texto)}</div>
+          </div>` : ''}
+        ${d.archivo_nombre ? `
+          <div style="margin-top:16px">
+            <div class="text-xs muted" style="margin-bottom:6px">Archivo adjunto</div>
+            <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm)">
+              <span style="font-size:20px">📄</span>
+              <div>
+                <div style="font-size:13px;font-weight:500">${esc(d.archivo_nombre)}</div>
+                <div class="text-xs muted">${esc(d.archivo_tipo || '')}</div>
+              </div>
+            </div>
+          </div>` : ''}
+        ${SESSION.nivel <= 2 ? `
+          <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+            <div class="text-xs muted" style="margin-bottom:8px">Mover a carpeta</div>
+            <div style="display:flex;gap:8px">
+              <select id="mover-carpeta-select" class="form-select" style="flex:1"></select>
+              <button class="btn btn-ghost" onclick="ejecutarMoverDoc('${d.id}')">Mover</button>
+            </div>
+          </div>` : ''}
+      </div>`;
+
+    document.body.appendChild(modal);
+
+    if (SESSION.nivel <= 2) {
+      cargarOpcionesCarpetas(d.area);
+    }
+  } catch(e) {
+    toast('Error: ' + e.message, true);
+  }
+}
+
+async function cargarOpcionesCarpetas(area) {
+  const select = document.getElementById('mover-carpeta-select');
+  if (!select) return;
+  try {
+    const data = await API.get('/api/carpetas/listar');
+    const carpetas = (data.carpetas || []).filter(c => c.id !== 'sin-clasificar' && c.area === area);
+    select.innerHTML = `
+      <option value="">Sin carpeta (Sin clasificar)</option>
+      ${carpetas.map(c => `<option value="${c.id}">${esc(c.nombre)}</option>`).join('')}
+    `;
+  } catch(e) {}
+}
+
+async function ejecutarMoverDoc(docId) {
+  const select = document.getElementById('mover-carpeta-select');
+  const carpetaId = select.value || null;
+  try {
+    await API.post('/api/documentos/mover', { id: docId, carpeta_id: carpetaId });
+    toast('Documento movido correctamente.');
+    document.getElementById('modal-ver-doc').remove();
+    await cargarCarpetas();
+  } catch(e) {
+    toast('Error: ' + e.message, true);
+  }
+}
+
+window.verDocumento = verDocumento;
+window.cargarOpcionesCarpetas = cargarOpcionesCarpetas;
+window.ejecutarMoverDoc = ejecutarMoverDoc;
+window.renderDocumentos = renderDocumentos;
+window.cargarCarpetas = cargarCarpetas;
+window.guardarNuevaCarpeta = guardarNuevaCarpeta;
+window.eliminarCarpeta = eliminarCarpeta;
+window.guardarNuevoDoc = guardarNuevoDoc;
+window.firmarDocumento = firmarDocumento;
 
 /* ════════════════════════════════════════
    USER ACTIONS
