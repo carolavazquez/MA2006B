@@ -216,10 +216,66 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
         <button class="btn btn-primary w-full mt-16" style="height:42px;font-size:14px" id="btn-login" onclick="doLogin()">
           Iniciar sesión
         </button>
-        <div style="margin-top:10px;font-size:12px;color:var(--muted);text-align:center">
-          Credencial de demo: <code style="font-size:11px;background:var(--bg);padding:1px 5px;border-radius:3px">admin@casamonarca.org</code>
+        <div style="margin-top:12px;text-align:center">
+          <a href="#" onclick="event.preventDefault();showResetModal()"
+            style="font-size:12px;color:var(--primary,#c84c2a);text-decoration:none;font-weight:500">
+            ¿Olvidaste tu contraseña?
+          </a>
         </div>
-      </div>
+        <div style="margin-top:10px;font-size:12px;color:var(--muted);text-align:center">
+          Credencial de demo: <code
+            style="font-size:11px;background:var(--bg);padding:1px 5px;border-radius:3px">admin@casamonarca.org</code>
+        </div>
+        </div>
+<div id="reset-modal" class="hidden"
+  style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px">
+  <div
+    style="background:var(--card,#fff);border-radius:12px;padding:32px;max-width:420px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.2)">
+    <h2 style="margin:0 0 8px 0;font-size:18px;color:var(--text,#222)">Recuperar contraseña</h2>
+    <p style="margin:0 0 20px 0;color:var(--muted,#666);font-size:14px;line-height:1.5">
+      Ingresa el correo asociado a tu cuenta. Si está registrado, te enviaremos un enlace para restablecer tu
+      contraseña.
+    </p>
+
+    <div id="reset-msg" class="hidden alert mt-12" style="margin-bottom:16px"></div>
+
+    <div class="form-group">
+      <label class="form-label">Correo institucional</label>
+      <input class="form-input" type="email" id="reset-email" placeholder="usuario@casamonarca.org">
+    </div>
+
+    <div style="display:flex;gap:8px;margin-top:20px">
+      <button class="btn btn-ghost" style="flex:1" onclick="closeResetModal()">Cancelar</button>
+      <button class="btn btn-primary" style="flex:1" id="btn-reset-submit" onclick="solicitarReset()">Enviar
+        enlace</button>
+    </div>
+  </div>
+</div>
+        
+        <div id="reset-modal" class="hidden"
+          style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px">
+          <div
+            style="background:var(--card,#fff);border-radius:12px;padding:32px;max-width:420px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.2)">
+            <h2 style="margin:0 0 8px 0;font-size:18px;color:var(--text,#222)">Recuperar contraseña</h2>
+            <p style="margin:0 0 20px 0;color:var(--muted,#666);font-size:14px;line-height:1.5">
+              Ingresa el correo asociado a tu cuenta. Si está registrado, te enviaremos un enlace para restablecer tu
+              contraseña.
+            </p>
+        
+            <div id="reset-msg" class="hidden alert mt-12" style="margin-bottom:16px"></div>
+        
+            <div class="form-group">
+              <label class="form-label">Correo institucional</label>
+              <input class="form-input" type="email" id="reset-email" placeholder="usuario@casamonarca.org">
+            </div>
+        
+            <div style="display:flex;gap:8px;margin-top:20px">
+              <button class="btn btn-ghost" style="flex:1" onclick="closeResetModal()">Cancelar</button>
+              <button class="btn btn-primary" style="flex:1" id="btn-reset-submit" onclick="solicitarReset()">Enviar
+                enlace</button>
+            </div>
+          </div>
+        </div>
 
       <!-- REGISTER -->
       <div id="pane-register" class="hidden">
@@ -487,7 +543,7 @@ async function doLogin() {
     const me = await API.get('/api/auth/me');
     SESSION = me.usuario;
 
-    if (parseInt(SESSION.nivel) == 2) {
+    if (parseInt(SESSION.nivel) == 2 || parseInt(SESSION.nivel) == 1) {
       // Colaborador nivel 2 pedir certificado
       setLoading(btn, false, 'Iniciar sesión');
       showCertLogin();
@@ -538,6 +594,8 @@ async function doCertLogin() {
     setLoading(btn, false, 'Verificar certificado y entrar');
   }
 }
+
+
 
 /* ════════════════════════════════════════
    REGISTER
@@ -599,6 +657,13 @@ function enterApp() {
   document.getElementById('sb-role').textContent = ROLES[SESSION.nivel]?.label || 'Nivel ' + SESSION.nivel;
 
   buildSidebar();
+
+if (SESSION.es_espejo) {
+  const aviso = document.createElement('div');
+  aviso.style.cssText = 'background:var(--warn-bg);color:var(--warn);padding:6px 16px;font-size:12px;text-align:center;border-bottom:1px solid var(--border);font-weight:500';
+  aviso.innerHTML = '⚠ Cuenta espejo · Solo lectura';
+  document.body.prepend(aviso);
+}
   navigateTo(SESSION.nivel === 1 ? 'dashboard' : 'home');
 }
 
@@ -624,6 +689,12 @@ function buildSidebar() {
       { id: 'docs',    icon: iList,  label: 'Documentos' },
       { id: 'audit',   icon: iList,  label: 'Auditoría' },
     ]});
+
+    if (SESSION.es_espejo) {
+      sections.push({ label: 'Cuenta espejo', items: [
+        { id: 'recuperacion', icon: iKey, label: 'Recuperar admin' },
+      ]});
+    }
   }
   if (n === 2) {
     sections.push({ label: 'Mi área', items: [
@@ -671,7 +742,8 @@ function navigateTo(page) {
     certs:     renderCerts,
     audit:     renderAudit,
     profile:   renderProfile,
-    docs:     renderDocumentos,
+    docs:      renderDocumentos,
+    recuperacion: renderRecuperacion,
   };
   if (pages[page]) pages[page]();
 }
@@ -787,6 +859,8 @@ function renderHome() {
       </div>
     </div>`;
 }
+
+
 
 
 /* ════════════════════════════════════════
@@ -1080,9 +1154,17 @@ async function renderCerts() {
   main.innerHTML = `
     <div class="page-head"><h1>Certificados y E.firma</h1><p>Gestión de identidades criptográficas — PKI</p></div>
     <div class="page-body">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
 
-        <div class="card">
+        <div class="card" style="grid-column:1 / -1">
+          <div class="card-title">Mi certificado de administrador</div>
+          <div class="card-sub">Estado de tu certificado vigente y renovación con tu llave privada.</div>
+          <div id="mi-cert-content" style="margin-top:16px">
+            <div class="muted">Cargando…</div>
+          </div>
+        </div>
+
+              <div class="card">
           <div class="card-title">Emisión de certificados</div>
           <div class="card-sub">Generar y asignar certificados digitales a colaboradores aprobados.</div>
           <div style="margin-top:16px">
@@ -1134,6 +1216,7 @@ async function renderCerts() {
 
       </div>
     </div>`;
+    cargarMiCertificado();
 }
 
 /* ════════════════════════════════════════
@@ -1554,6 +1637,66 @@ async function ejecutarMoverDoc(docId) {
   }
 }
 
+/* ════════════════════════════════════════
+   PAGE: RECUPERACIÓN
+════════════════════════════════════════ */
+
+function renderRecuperacion() {
+  const main = document.getElementById('main');
+  main.innerHTML = `
+    <div class="page-head">
+      <h1>Recuperación de administrador</h1>
+      <p>Solicitud de recuperación de la cuenta del administrador asociado</p>
+    </div>
+    <div class="page-body" style="max-width:680px">
+      <div class="card">
+        <div class="card-title">¿Cuándo usar esto?</div>
+        <p class="text-sm muted mt-8">
+          Esta acción está disponible únicamente cuando el administrador del sistema ha perdido acceso a su cuenta.
+          Al confirmar, se enviará un enlace de recuperación al correo registrado del administrador. El enlace expira en 30 minutos
+          y solo puede usarse una vez.
+        </p>
+
+        <div class="alert alert-warn mt-16">
+          <strong>Importante:</strong> esta es la única acción de escritura permitida desde la cuenta espejo. La solicitud queda registrada en bitácora.
+        </div>
+
+        <div id="rec-result" class="hidden mt-16"></div>
+
+        <button class="btn btn-primary mt-16" id="btn-recuperar" onclick="solicitarRecuperacion()">
+          Iniciar recuperación del administrador
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+async function solicitarRecuperacion() {
+  const btn = document.getElementById('btn-recuperar');
+  const result = document.getElementById('rec-result');
+
+  if (!confirm('¿Confirmas que deseas iniciar la recuperación del administrador? Se enviará un enlace al correo registrado.')) return;
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin"></span> Enviando…';
+
+  try {
+    const r = await API.post('/api/usuarios/recuperar-admin', {});
+    result.className = 'alert alert-success';
+    result.innerHTML = `<strong>Solicitud enviada.</strong> ${esc(r.mensaje)}`;
+    result.classList.remove('hidden');
+    btn.classList.add('hidden');
+  } catch (e) {
+    result.className = 'alert alert-danger';
+    result.innerHTML = `<strong>Error:</strong> ${esc(e.message || 'No se pudo iniciar la recuperación')}`;
+    result.classList.remove('hidden');
+    btn.disabled = false;
+    btn.innerHTML = 'Iniciar recuperación del administrador';
+  }
+}
+
+
+
 window.verDocumento = verDocumento;
 window.cargarOpcionesCarpetas = cargarOpcionesCarpetas;
 window.ejecutarMoverDoc = ejecutarMoverDoc;
@@ -1563,6 +1706,9 @@ window.guardarNuevaCarpeta = guardarNuevaCarpeta;
 window.eliminarCarpeta = eliminarCarpeta;
 window.guardarNuevoDoc = guardarNuevoDoc;
 window.firmarDocumento = firmarDocumento;
+window.renderRecuperacion = renderRecuperacion;
+window.solicitarRecuperacion = solicitarRecuperacion;
+
 
 /* ════════════════════════════════════════
    USER ACTIONS
@@ -1674,6 +1820,122 @@ async function verificarCertificado() {
     result.innerHTML = `<div class="alert alert-danger">${esc(e.message)}</div>`;
   }
   result.classList.remove('hidden');
+}
+
+async function cargarMiCertificado() {
+  const cont = document.getElementById('mi-cert-content');
+  try {
+    const r = await API.post('/api/certificados/verificar', { usuario_id: SESSION.id });
+
+    if (r.status !== 'valido') {
+      cont.innerHTML = `
+        <div class="alert alert-warn">
+          <strong>Sin certificado vigente.</strong> Contacta al equipo técnico para reemisión.
+        </div>`;
+      return;
+    }
+
+    const dias = Math.ceil((new Date(r.certificado.fecha_expiracion) - new Date()) / 86400000);
+    const colorVigencia = dias < 30 ? 'var(--warn)' : 'var(--text)';
+
+    cont.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:16px">
+        <div>
+          <div class="muted text-xs">Estado</div>
+          <div style="font-weight:600;color:var(--success)">● Activo</div>
+        </div>
+        <div>
+          <div class="muted text-xs">Vigencia</div>
+          <div style="font-weight:600;color:${colorVigencia}">${dias} días restantes</div>
+          <div class="muted text-xs">Hasta ${esc(r.certificado.fecha_expiracion.split(' ')[0])}</div>
+        </div>
+        <div>
+          <div class="muted text-xs">Hash SHA-256</div>
+          <div style="font-family:monospace;font-size:11px;word-break:break-all">${esc(r.certificado.hash.substring(0, 32))}…</div>
+        </div>
+      </div>
+
+      <div style="border-top:1px solid var(--border);padding-top:16px">
+        <div style="font-weight:600;margin-bottom:8px">Renovar certificado</div>
+        <div class="muted text-sm" style="margin-bottom:12px">
+          Sube tu llave privada actual para autorizar la renovación. La llave nunca se envía al servidor — solo firma localmente el challenge.
+        </div>
+        <input type="file" id="renov-key-file" accept=".key,.pem" class="form-input">
+        <button class="btn btn-primary mt-12" id="btn-renovar" onclick="renovarMiCertificado()">Renovar mi certificado</button>
+        <div id="renov-result" class="hidden mt-12"></div>
+      </div>`;
+  } catch (e) {
+    cont.innerHTML = `<div class="alert alert-danger">Error al cargar certificado: ${esc(e.message || 'desconocido')}</div>`;
+  }
+}
+
+async function renovarMiCertificado() {
+  const fileInput = document.getElementById('renov-key-file');
+  const btn = document.getElementById('btn-renovar');
+  const result = document.getElementById('renov-result');
+
+  if (!fileInput.files[0]) {
+    result.className = 'alert alert-warn';
+    result.innerHTML = 'Selecciona el archivo de tu llave privada (.key)';
+    result.classList.remove('hidden');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin"></span> Renovando…';
+
+  try {
+    const challengeRes = await API.get('/api/certificados/challenge-renovacion');
+    const challenge = challengeRes.challenge;
+
+    const pemText = await fileInput.files[0].text();
+    const privateKey = await importarLlavePEM(pemText);
+
+    const challengeBytes = new TextEncoder().encode(challenge);
+    const firmaBuffer = await window.crypto.subtle.sign(
+      { name: 'RSASSA-PKCS1-v1_5' },
+      privateKey,
+      challengeBytes
+    );
+    const firmaB64 = btoa(String.fromCharCode(...new Uint8Array(firmaBuffer)));
+
+    const r = await API.post('/api/certificados/renovar-mio', {
+      challenge: challenge,
+      firma: firmaB64
+    });
+
+    result.className = 'alert alert-success';
+    result.innerHTML = `
+      <strong>Certificado renovado exitosamente.</strong><br>
+      Nueva vigencia hasta: ${esc(r.fecha_expiracion)}<br>
+      <a href="${esc(r.link_descarga)}" target="_blank" class="btn btn-primary mt-8">Descargar nuevo certificado</a>
+      <div class="muted text-xs mt-8">El enlace expira el ${esc(r.link_expira_en)}</div>`;
+    result.classList.remove('hidden');
+
+    setTimeout(() => cargarMiCertificado(), 5000);
+  } catch (e) {
+    result.className = 'alert alert-danger';
+    result.innerHTML = `<strong>Error:</strong> ${esc(e.message || 'No se pudo renovar')}`;
+    result.classList.remove('hidden');
+    btn.disabled = false;
+    btn.innerHTML = 'Renovar mi certificado';
+  }
+}
+
+async function importarLlavePEM(pem) {
+  const cleaned = pem
+    .replace(/-----BEGIN [^-]+-----/, '')
+    .replace(/-----END [^-]+-----/, '')
+    .replace(/\s/g, '');
+  const binary = Uint8Array.from(atob(cleaned), c => c.charCodeAt(0));
+
+  return await window.crypto.subtle.importKey(
+    'pkcs8',
+    binary.buffer,
+    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
 }
 
 async function cargarRepositorio() {

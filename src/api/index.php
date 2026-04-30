@@ -9,6 +9,8 @@ $parts = explode('/', trim($route, '/'));
 $resource = $parts[0] ?? '';
 $action   = $parts[1] ?? '';
 
+error_log("DEBUG route: " . ($_GET['route'] ?? 'VACIO') . " | resource: $resource | action: $action");
+
 switch ($resource) {
     case 'usuarios':
         require_once __DIR__ . '/../controllers/UsuariosController.php';
@@ -21,6 +23,10 @@ switch ($resource) {
             case 'editar':   echo json_encode($controller->editar());  break;
             case 'revocar':  echo json_encode($controller->revocar()); break;
             case 'crear-espejo': echo json_encode($controller->crearEspejo()); break;
+            case 'recuperar-admin':       echo json_encode($controller->recuperarAdmin()); break;
+            case 'completar-recuperacion': echo json_encode($controller->completarRecuperacion()); break;
+            case 'solicitar-reset':  echo json_encode($controller->solicitarReset()); break;
+            case 'completar-reset':  echo json_encode($controller->completarReset()); break;
             default: http_response_code(404); echo json_encode(['error' => 'Acción no encontrada']); break;
         }
         break;
@@ -32,9 +38,12 @@ switch ($resource) {
             case 'generar':   echo json_encode($controller->generar());   break;
             case 'revocar':   echo json_encode($controller->revocar());   break;
             case 'verificar': echo json_encode($controller->verificar()); break;
+            case 'challenge-renovacion': echo json_encode($controller->challengeRenovacion()); break;
+            case 'renovar-mio':          echo json_encode($controller->renovarMio()); break;
             case 'descargar':
                 require_once __DIR__ . '/../api/certificados/descargar.php';
                 break;
+            
             default: http_response_code(404); echo json_encode(['error' => 'Acción no encontrada']); break;
         }
         break;

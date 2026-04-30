@@ -12,3 +12,5 @@ db_data/
 
 # Composer
 composer.lock
+
+echo ".env" >> .gitignore.env

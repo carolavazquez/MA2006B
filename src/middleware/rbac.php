@@ -45,10 +45,13 @@ function verificarAcceso($nivel_requerido, $area_requerida = null) {
         $usuario = $stmt->fetch();
 
         if ($usuario && $usuario['es_espejo'] && $_SERVER['REQUEST_METHOD'] === 'POST') {
-            http_response_code(403);
-            die(json_encode([
-                'error' => 'Cuenta de solo lectura. Esta cuenta espejo no puede ejecutar acciones.'
-            ]));
+            $ruta_actual = $_SERVER['REQUEST_URI'] ?? '';
+            if (!str_contains($ruta_actual, '/usuarios/recuperar-admin')) {
+                http_response_code(403);
+                die(json_encode([
+                    'error' => 'Cuenta de solo lectura. Esta cuenta espejo no puede ejecutar acciones.'
+                ]));
+            }
         }
     }
 
