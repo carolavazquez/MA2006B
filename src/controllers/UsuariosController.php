@@ -13,7 +13,7 @@ class UsuariosController {
     }
 
     public function listar() {
-        verificarAcceso(1);
+        verificarAcceso(1, null, 'r');
         $filtros = [];
         $valores = [];
 
@@ -32,7 +32,7 @@ class UsuariosController {
     }
 
     public function ver() {
-        verificarAcceso(1);
+        verificarAcceso(1, null, 'r');
         $id = $_GET['id'] ?? '';
         if (!$id) return $this->error(400, 'id es requerido');
 
@@ -48,7 +48,7 @@ class UsuariosController {
     }
 
     public function crear() {
-        $admin = verificarAcceso(1);
+        $admin = verificarAcceso(1, null, 'w');
         $body = json_decode(file_get_contents('php://input'), true);
 
         $nombre = $body['nombre'] ?? '';
@@ -82,7 +82,7 @@ class UsuariosController {
     }
 
     public function activar() {
-        $admin = verificarAcceso(1);
+        $admin = verificarAcceso(1, null, 'x');
         $body = json_decode(file_get_contents('php://input'), true);
         $usuario_id = $body['usuario_id'] ?? '';
 
@@ -112,7 +112,7 @@ class UsuariosController {
     }
 
     public function editar() {
-        $admin = verificarAcceso(1);
+        $admin = verificarAcceso(1, null, 'w');
         $body = json_decode(file_get_contents('php://input'), true);
         $usuario_id = $body['usuario_id'] ?? '';
 
@@ -145,7 +145,7 @@ class UsuariosController {
     }
 
     public function revocar() {
-        $admin = verificarAcceso(1);
+        $admin = verificarAcceso(1, null, 'x');
         $body = json_decode(file_get_contents('php://input'), true);
         $usuario_id = $body['usuario_id'] ?? '';
 
@@ -166,7 +166,7 @@ class UsuariosController {
     }
 
     public function crearEspejo() {
-        $admin = verificarAcceso(1);
+        $admin = verificarAcceso(1, null, 'e');
 
         $stmt = $this->db->prepare("SELECT * FROM usuarios WHERE espejo_de = ? AND es_espejo = 1");
         $stmt->execute([$admin['sub']]);
@@ -360,6 +360,83 @@ class UsuariosController {
         $this->bitacora($recuperacion['usuario_id'], 'RESET_PASSWORD_COMPLETADO', 'usuarios', $recuperacion['usuario_id']);
 
         return ['status' => 'ok', 'mensaje' => 'Contraseña restablecida correctamente.'];
+    }
+
+
+    public function actualizarPermisos()
+    {
+        $admin = verificarAcceso(1, null, 'e');
+        $body = json_decode(file_get_contents('php://input'), true);
+        $usuario_id = $body['usuario_id'] ?? '';
+        $permisos = $body['permisos'] ?? null;
+
+        if (!$usuario_id || !is_array($permisos)) {
+            return $this->error(400, 'usuario_id y permisos (array) son requeridos');
+        }
+
+        $stmt = $this->db->prepare("SELECT id, nivel FROM usuarios WHERE id = ?");
+        $stmt->execute([$usuario_id]);
+        $usuario = $stmt->fetch();
+        if (!$usuario)
+            return $this->error(404, 'Usuario no encontrado');
+
+        if ($usuario_id === $admin['sub']) {
+            return $this->error(403, 'No puedes modificar tus propios permisos');
+        }
+
+        $base = match ((int) $usuario['nivel']) {
+            1 => ['r' => 1, 'w' => 1, 'x' => 1, 'e' => 1],
+            2 => ['r' => 1, 'w' => 1, 'x' => 1, 'e' => 0],
+            3 => ['r' => 1, 'w' => 1, 'x' => 0, 'e' => 0],
+            4 => ['r' => 1, 'w' => 0, 'x' => 0, 'e' => 0],
+            default => ['r' => 0, 'w' => 0, 'x' => 0, 'e' => 0],
+        };
+
+        $permitidos = ['r', 'w', 'x', 'e'];
+        $this->db->beginTransaction();
+        try {
+            $this->db->prepare("DELETE FROM permisos_overrides WHERE usuario_id = ?")->execute([$usuario_id]);
+
+            foreach ($permisos as $p => $v) {
+                if (!in_array($p, $permitidos))
+                    continue;
+                $v = (int) (bool) $v;
+                if ($base[$p] === $v)
+                    continue;
+
+                $this->db->prepare("
+                INSERT INTO permisos_overrides (id, usuario_id, permiso, valor, creado_por)
+                VALUES (?, ?, ?, ?, ?)
+            ")->execute([$this->uuid(), $usuario_id, $p, $v, $admin['sub']]);
+            }
+
+            $this->bitacora($admin['sub'], 'ACTUALIZAR_PERMISOS', 'usuarios', $usuario_id);
+            $this->db->commit();
+        } catch (Exception $e) {
+            $this->db->rollBack();
+            return $this->error(500, 'Error al actualizar permisos: ' . $e->getMessage());
+        }
+
+        return ['status' => 'ok', 'mensaje' => 'Permisos actualizados.'];
+    }
+
+    public function obtenerPermisos()
+    {
+        verificarAcceso(1, null, 'r');
+        $usuario_id = $_GET['usuario_id'] ?? '';
+        if (!$usuario_id)
+            return $this->error(400, 'usuario_id es requerido');
+
+        $stmt = $this->db->prepare("SELECT nivel FROM usuarios WHERE id = ?");
+        $stmt->execute([$usuario_id]);
+        $usuario = $stmt->fetch();
+        if (!$usuario)
+            return $this->error(404, 'Usuario no encontrado');
+
+        require_once __DIR__ . '/../middleware/rbac.php';
+        $efectivos = permisosEfectivos($usuario_id, $usuario['nivel']);
+
+        return ['status' => 'ok', 'permisos' => $efectivos];
     }
 
     private function bitacora($usuario_id, $accion, $tabla, $registro_id) {

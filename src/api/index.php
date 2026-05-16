@@ -27,6 +27,8 @@ switch ($resource) {
             case 'completar-recuperacion': echo json_encode($controller->completarRecuperacion()); break;
             case 'solicitar-reset':  echo json_encode($controller->solicitarReset()); break;
             case 'completar-reset':  echo json_encode($controller->completarReset()); break;
+            case 'actualizar-permisos': echo json_encode($controller->actualizarPermisos()); break;
+            case 'obtener-permisos':    echo json_encode($controller->obtenerPermisos()); break;
             default: http_response_code(404); echo json_encode(['error' => 'Acción no encontrada']); break;
         }
         break;
@@ -101,6 +103,21 @@ switch ($resource) {
         default: http_response_code(404); echo json_encode(['error' => 'Acción no encontrada']); break;
     }
     break;
+
+    case 'audit':
+        require_once __DIR__ . '/../controllers/AuditController.php';;
+        $controller = new AuditController();
+        switch ($action) {
+            case 'listar':
+                echo json_encode($controller->listar());
+                break;
+            default:
+                http_response_code(404);
+                echo json_encode(['error' => 'Acción no encontrada']);
+        }
+        break;
+
+    case 'reemitir-mio': echo json_encode($controller->reemitirMio()); break;
 
 
     default:

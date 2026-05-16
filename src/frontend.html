@@ -320,16 +320,6 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
             <input class="form-input" type="password" id="r-pass" placeholder="Mínimo 8 caracteres">
           </div>
         </div>
-        <!-- PKI PLACEHOLDER -->
-        <div style="margin-top:12px;padding:12px 14px;border-radius:var(--radius-sm);border:1px dashed var(--border2);background:var(--bg)">
-          <div style="font-size:11px;font-weight:500;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em">Certificado digital / E.firma</div>
-          <div style="font-size:12px;color:var(--muted)">El certificado será generado y emitido por el administrador tras la aprobación de tu solicitud.</div>
-          <div style="display:flex;gap:8px;margin-top:8px">
-            <button class="btn btn-ghost btn-sm" disabled>Cargar .cer</button>
-            <button class="btn btn-ghost btn-sm" disabled>Cargar .key</button>
-          </div>
-          <div style="font-size:11px;color:var(--hint);margin-top:5px">Módulo PKI — pendiente de implementación</div>
-        </div>
         <button class="btn btn-primary w-full mt-16" style="height:42px;font-size:14px" id="btn-register" onclick="doRegister()">
           Enviar solicitud
         </button>
@@ -388,18 +378,18 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
          per-permission overrides is added (e.g. POST /api/usuarios/permisos.php).
          Currently only nivel (which maps to a full permission set) is sent. -->
     <div style="margin-top:16px">
-      <div style="font-size:12px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">
+      <div
+        style="font-size:12px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">
         Permisos individuales
-        <span class="badge badge-amber" style="margin-left:8px;font-size:10px">Backend pendiente</span>
       </div>
       <div class="perm-row" id="perm-toggles">
-        <span class="perm-toggle perm-on" data-perm="r" onclick="togglePerm(this)">r — Leer</span>
-        <span class="perm-toggle perm-on" data-perm="w" onclick="togglePerm(this)">w — Escribir</span>
-        <span class="perm-toggle perm-on" data-perm="x" onclick="togglePerm(this)">x — Autorizar</span>
-        <span class="perm-toggle perm-off" data-perm="e" onclick="togglePerm(this)">e — Admin</span>
+        <span class="perm-toggle" data-perm="r" onclick="togglePerm(this)">r — Leer</span>
+        <span class="perm-toggle" data-perm="w" onclick="togglePerm(this)">w — Escribir</span>
+        <span class="perm-toggle" data-perm="x" onclick="togglePerm(this)">x — Autorizar</span>
+        <span class="perm-toggle" data-perm="e" onclick="togglePerm(this)">e — Admin</span>
       </div>
       <div style="font-size:11px;color:var(--hint);margin-top:6px">
-        Los permisos del nivel ya incluyen un conjunto base. Las excepciones individuales requieren endpoint <code>/api/usuarios/permisos</code>.
+        Estos permisos sobrescriben los del nivel base solo cuando se desvían de él.
       </div>
     </div>
 
@@ -595,6 +585,53 @@ async function doCertLogin() {
   }
 }
 
+function showResetModal() {
+  document.getElementById('reset-modal').classList.remove('hidden');
+  document.getElementById('reset-email').value = document.getElementById('l-email').value.trim();
+  document.getElementById('reset-msg').classList.add('hidden');
+  setTimeout(() => document.getElementById('reset-email').focus(), 50);
+}
+
+function closeResetModal() {
+  document.getElementById('reset-modal').classList.add('hidden');
+}
+
+async function solicitarReset() {
+  const email = document.getElementById('reset-email').value.trim();
+  const msg = document.getElementById('reset-msg');
+  const btn = document.getElementById('btn-reset-submit');
+
+  msg.classList.add('hidden');
+
+  if (!email) {
+    msg.className = 'alert alert-danger';
+    msg.textContent = 'Ingresa tu correo.';
+    msg.classList.remove('hidden');
+    return;
+  }
+
+  setLoading(btn, true);
+  try {
+    const r = await fetch(BASE_URL + '/api/usuarios/solicitar-reset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    const data = await r.json();
+
+    msg.className = 'alert alert-success';
+    msg.textContent = data.mensaje || 'Si el correo está registrado, recibirás un enlace en los próximos minutos.';
+    msg.classList.remove('hidden');
+
+    setTimeout(closeResetModal, 4000);
+  } catch (e) {
+    msg.className = 'alert alert-danger';
+    msg.textContent = 'Error al procesar la solicitud. Intenta de nuevo.';
+    msg.classList.remove('hidden');
+  } finally {
+    setLoading(btn, false, 'Enviar enlace');
+  }
+}
 
 
 /* ════════════════════════════════════════
@@ -635,10 +672,7 @@ async function doRegister() {
     document.getElementById('r-area').value = '';
     document.getElementById('r-nivel').value = '';
   } catch (e) {
-    const msg = e.message.includes('404')
-      ? 'El endpoint de registro aún no existe en el backend (POST /api/auth/registro). Pídele al equipo de backend que lo implemente.'
-      : e.message;
-    showErr(errEl, msg);
+    showErr(errEl, e.message || 'No se pudo enviar la solicitud. Intenta de nuevo.');
   } finally {
     setLoading(btn, false, 'Enviar solicitud');
   }
@@ -829,6 +863,7 @@ async function renderDashboard() {
    PAGE: USER HOME (non-admin)
 ════════════════════════════════════════ */
 function renderHome() {
+  console.log('renderHome corre');
   const main = document.getElementById('main');
   const perms = ROLES[SESSION.nivel]?.perms || [];
   main.innerHTML = `
@@ -845,22 +880,41 @@ function renderHome() {
         </div>
         <div class="card">
           <div class="card-title" style="margin-bottom:12px">Certificado digital</div>
-          <div class="cert-ph">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg>
-            <h3>Sin certificado asignado</h3>
-            <p>El administrador emitirá tu certificado digital una vez habilitado el módulo PKI.</p>
-            <div style="display:flex;gap:8px;justify-content:center;margin-top:12px">
-              <button class="btn btn-ghost btn-sm" disabled>Cargar .cer</button>
-              <button class="btn btn-ghost btn-sm" disabled>Cargar .key</button>
-            </div>
-            <div style="font-size:11px;color:var(--hint);margin-top:6px">Módulo PKI — pendiente de implementación</div>
+          <div id="home-cert-content">
+            <div style="padding:30px;text-align:center"><span class="spin spin-dark"></span></div>
           </div>
         </div>
       </div>
     </div>`;
+    cargarMiCertHome()
 }
 
-
+async function cargarMiCertHome() {
+  const cont = document.getElementById('home-cert-content');
+  if (!cont) return;
+  try {
+    const r = await API.post('/api/certificados/verificar', { usuario_id: SESSION.id });
+    if (r.status !== 'valido') {
+      cont.innerHTML = `
+        <div style="text-align:center;padding:20px 0">
+          <div style="color:var(--muted);font-size:14px">Sin certificado activo.</div>
+          <div style="color:var(--hint);font-size:12px;margin-top:6px">Contacta al administrador para que lo emita.</div>
+        </div>`;
+      return;
+    }
+    const dias = Math.ceil((new Date(r.certificado.fecha_expiracion) - new Date()) / 86400000);
+    cont.innerHTML = `
+      <div style="display:grid;gap:10px">
+        <div><span class="muted text-xs">Estado:</span> <span style="color:var(--success);font-weight:600">● Activo</span></div>
+        <div><span class="muted text-xs">Vigencia:</span> ${dias} días restantes</div>
+        <div><span class="muted text-xs">Vence:</span> ${esc(r.certificado.fecha_expiracion.split(' ')[0])}</div>
+        <div style="font-family:monospace;font-size:10px;word-break:break-all;color:var(--muted)">${esc(r.certificado.hash.substring(0, 32))}…</div>
+      </div>`;
+  } catch (e) {
+    cont.innerHTML = `<div style="color:var(--muted);font-size:13px">No se pudo cargar el certificado.</div>`;
+  }
+   cargarMiCertHome()
+}
 
 
 /* ════════════════════════════════════════
@@ -1075,17 +1129,14 @@ async function renderNotifs() {
       <p>Nuevos registros pendientes de aprobación</p>
     </div>
     <div class="page-body">
-      <div class="alert alert-info" style="margin-bottom:16px">
-        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" style="flex-shrink:0;margin-top:1px"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.2"/><path d="M8 7v4M8 5v.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
-        <div>Nota para el equipo backend: el endpoint <code>/api/usuarios/listar.php</code> no incluye filtro <code>?estado=pendiente</code> en la colección Postman. Se filtra en el cliente por ahora. Añadir ese filtro mejorará el rendimiento.</div>
+      <div id="notifs-wrap">
+        <div style="padding:30px;text-align:center"><span class="spin spin-dark"></span></div>
       </div>
-      <div id="notifs-wrap"><div style="padding:30px;text-align:center"><span class="spin spin-dark"></span></div></div>
     </div>`;
 
   try {
-    const users = await API.get('/api/usuarios/listar');
-    const all   = Array.isArray(users) ? users : [];
-    const pend  = all.filter(u => u.estado === 'pendiente' || (u.activo == 0 && u.estado !== 'revocado'));
+    const r = await API.get('/api/usuarios/listar?estado=pendiente');
+    const pend = Array.isArray(r) ? r : (r.usuarios || []);
     renderNotifList(pend);
     updateNotifBadge(pend.length);
   } catch(e) {
@@ -1222,39 +1273,137 @@ async function renderCerts() {
 /* ════════════════════════════════════════
    PAGE: AUDIT LOG (static demo — needs backend endpoint)
 ════════════════════════════════════════ */
-function renderAudit() {
+async function renderAudit() {
   const main = document.getElementById('main');
   main.innerHTML = `
-    <div class="page-head"><h1>Bitácora de auditoría</h1><p>Registro de accesos y eventos del sistema</p></div>
+    <div class="page-head">
+      <h1>Bitácora de auditoría</h1>
+      <p>Registro de accesos y eventos del sistema</p>
+    </div>
     <div class="page-body">
-      <div class="alert alert-info" style="margin-bottom:16px">
-        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" style="flex-shrink:0;margin-top:1px"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.2"/><path d="M8 7v4M8 5v.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
-        <div>Backend pendiente: implementar <code>GET /api/audit/listar.php</code> con campos timestamp, usuario_id, accion, recurso, ip, hash. Por ahora se muestran datos de ejemplo.</div>
+      <div class="card" style="margin-bottom:16px;padding:16px">
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;align-items:end">
+          <div class="form-group" style="margin:0">
+            <label class="form-label">Acción</label>
+            <input class="form-input" id="audit-accion" placeholder="Ej: CREAR, REVOCAR…">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label class="form-label">Tabla</label>
+            <select class="form-select" id="audit-tabla">
+              <option value="">Todas</option>
+              <option value="usuarios">usuarios</option>
+              <option value="certificados">certificados</option>
+              <option value="documentos">documentos</option>
+              <option value="autorizaciones_documentos">autorizaciones_documentos</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin:0">
+            <label class="form-label">Desde</label>
+            <input class="form-input" type="date" id="audit-desde">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label class="form-label">Hasta</label>
+            <input class="form-input" type="date" id="audit-hasta">
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">
+          <button class="btn btn-ghost" onclick="resetAuditFiltros()">Limpiar</button>
+          <button class="btn btn-primary" onclick="cargarBitacora()">Aplicar filtros</button>
+        </div>
       </div>
+
       <div class="card" style="padding:0;overflow:hidden">
-        <table class="data-table">
-          <thead><tr><th>Timestamp</th><th>Usuario</th><th>Acción</th><th>Recurso</th><th>IP</th><th>Hash</th></tr></thead>
-          <tbody>
-            ${[
-              ['2025-11-14 09:42','Admin Root','Login exitoso','Sistema','192.168.1.1','a3f9…d12c','green'],
-              ['2025-11-14 09:15','Ana López','Modificación','Expediente #2847','192.168.1.32','7b2e…f41a','blue'],
-              ['2025-11-14 08:30','Sistema','Respaldo automático','BD completa','—','c19d…3e7b','gray'],
-              ['2025-11-13 18:22','Admin Root','Revocación','Usuario #0042','192.168.1.1','9f3a…81cd','red'],
-              ['2025-11-13 17:10','—','Acceso denegado','Panel Admin','200.68.14.22','2d7f…a90e','amber'],
-            ].map(([ts,usr,act,res,ip,hash,color]) => `
-              <tr>
-                <td class="mono muted">${ts}</td>
-                <td>${usr}</td>
-                <td><span class="badge badge-${color}">${act}</span></td>
-                <td>${res}</td>
-                <td class="mono muted">${ip}</td>
-                <td class="mono muted" style="font-size:11px">${hash}</td>
-              </tr>`).join('')}
-          </tbody>
-        </table>
+        <div id="audit-wrap">
+          <div style="padding:40px;text-align:center"><span class="spin spin-dark"></span></div>
+        </div>
       </div>
     </div>`;
+
+  cargarBitacora();
 }
+
+function resetAuditFiltros() {
+  document.getElementById('audit-accion').value = '';
+  document.getElementById('audit-tabla').value = '';
+  document.getElementById('audit-desde').value = '';
+  document.getElementById('audit-hasta').value = '';
+  cargarBitacora();
+}
+
+async function cargarBitacora() {
+  const wrap = document.getElementById('audit-wrap');
+  wrap.innerHTML = `<div style="padding:40px;text-align:center"><span class="spin spin-dark"></span></div>`;
+
+  const params = new URLSearchParams();
+  const accion = document.getElementById('audit-accion')?.value.trim();
+  const tabla  = document.getElementById('audit-tabla')?.value;
+  const desde  = document.getElementById('audit-desde')?.value;
+  const hasta  = document.getElementById('audit-hasta')?.value;
+
+  if (accion) params.append('accion', accion);
+  if (tabla)  params.append('tabla', tabla);
+  if (desde)  params.append('desde', desde + ' 00:00:00');
+  if (hasta)  params.append('hasta', hasta + ' 23:59:59');
+  params.append('limit', '200');
+
+  try {
+    const r = await API.get('/api/audit/listar?' + params.toString());
+
+    if (!r.registros.length) {
+      wrap.innerHTML = `
+        <div style="padding:40px;text-align:center;color:var(--muted)">
+          No hay registros para los filtros seleccionados.
+        </div>`;
+      return;
+    }
+
+    const filas = r.registros.map(b => {
+      const colorAccion = colorPorAccion(b.accion);
+      return `
+        <tr>
+          <td class="mono muted">${esc(b.creado_en)}</td>
+          <td>
+            <div>${esc(b.usuario_nombre || '—')}</div>
+            <div class="muted text-xs">${esc(b.usuario_email || '')}</div>
+          </td>
+          <td><span class="badge badge-${colorAccion}">${esc(b.accion)}</span></td>
+          <td>${esc(b.tabla_afectada || '—')}</td>
+          <td class="mono muted text-xs" title="${esc(b.registro_id || '')}">${esc((b.registro_id || '—').substring(0, 8))}…</td>
+        </tr>`;
+    }).join('');
+
+    wrap.innerHTML = `
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Timestamp</th>
+            <th>Usuario</th>
+            <th>Acción</th>
+            <th>Tabla</th>
+            <th>Registro</th>
+          </tr>
+        </thead>
+        <tbody>${filas}</tbody>
+      </table>
+      <div style="padding:12px 16px;background:var(--bg);border-top:1px solid var(--border);font-size:12px;color:var(--muted);text-align:right">
+        Mostrando ${r.registros.length} de ${r.total} registros totales
+      </div>`;
+  } catch (e) {
+    wrap.innerHTML = `<div style="padding:30px;color:var(--danger);text-align:center">Error al cargar la bitácora: ${esc(e.message || '')}</div>`;
+  }
+}
+
+function colorPorAccion(accion) {
+  if (!accion) return 'gray';
+  const a = accion.toUpperCase();
+  if (a.includes('CREAR') || a.includes('GENERAR') || a.includes('ACTIVAR')) return 'green';
+  if (a.includes('REVOCAR') || a.includes('ELIMINAR'))                       return 'red';
+  if (a.includes('EDITAR') || a.includes('ACTUALIZAR') || a.includes('MOVER')) return 'blue';
+  if (a.includes('RECUPERACION') || a.includes('RESET') || a.includes('AVISO')) return 'amber';
+  if (a.includes('AUTORIZAR') || a.includes('FIRMAR'))                        return 'green';
+  return 'gray';
+}
+
 
 /* ════════════════════════════════════════
    PAGE: PROFILE
@@ -1297,19 +1446,12 @@ function renderProfile() {
 
       <div class="card">
         <div class="card-title" style="margin-bottom:12px">Certificado digital / E.firma</div>
-        <div class="cert-ph">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg>
-          <h3>Sin certificado asignado</h3>
-          <p>El administrador emitirá tu e.firma una vez que el módulo PKI esté implementado.</p>
-          <div style="display:flex;gap:8px;justify-content:center;margin-top:12px">
-            <button class="btn btn-ghost btn-sm" disabled>Cargar .cer</button>
-            <button class="btn btn-ghost btn-sm" disabled>Cargar .key</button>
-            <button class="btn btn-ghost btn-sm" disabled>Probar firma</button>
-          </div>
-          <div style="font-size:11px;color:var(--hint);margin-top:6px">Módulo PKI — pendiente de implementación</div>
-        </div>
+        <div id="profile-cert-content">
+          <div style="padding:30px;text-align:center"><span class="spin spin-dark"></span></div>
+       </div>
       </div>
     </div>`;
+    cargarCertProfile();
 }
 
 
@@ -1360,6 +1502,49 @@ async function renderDocumentos(carpetaId = null, carpetaNombre = null) {
       </div>
     </div>
 
+
+    <div id="modal-firmar-doc" class="modal-backdrop hidden">
+      <div class="modal" style="max-width:640px">
+        <div class="modal-head">
+          <div class="modal-title">Firmar documento</div>
+          <button class="modal-close" onclick="closeModal('modal-firmar-doc')">×</button>
+        </div>
+
+        <div id="firma-loading" style="padding:40px;text-align:center">
+          <span class="spin spin-dark"></span>
+        </div>
+
+        <div id="firma-content" class="hidden">
+          <div class="alert alert-warn mt-12" style="font-size:13px">
+            <strong>Importante:</strong> al firmar declaras autoría sobre este documento. La firma queda permanente y vinculada a tu certificado digital. Tu llave privada nunca se envía al servidor.
+          </div>
+
+          <div class="form-group mt-12">
+            <label class="form-label">Documento</label>
+            <div id="firma-doc-meta" style="background:var(--bg);padding:10px 12px;border-radius:6px;font-size:13px"></div>
+          </div>
+
+          <div class="form-group mt-12">
+            <label class="form-label">Contenido a firmar</label>
+            <div id="firma-doc-preview" style="background:var(--bg);padding:12px;border-radius:6px;max-height:200px;overflow:auto;font-family:monospace;font-size:12px;white-space:pre-wrap;word-break:break-all"></div>
+          </div>
+
+          <div class="form-group mt-12">
+            <label class="form-label">Tu llave privada (.key) *</label>
+            <input id="firma-keyfile" class="form-input" type="file" accept=".key,.pem" style="padding:6px 12px;height:auto">
+            <div class="text-xs muted mt-8">La llave nunca se envía al servidor; se usa localmente para firmar el contenido.</div>
+          </div>
+
+          <div id="firma-err" class="alert alert-danger hidden mt-12"></div>
+
+          <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px">
+            <button class="btn btn-ghost" onclick="closeModal('modal-firmar-doc')">Cancelar</button>
+            <button class="btn btn-primary" id="btn-firmar" onclick="ejecutarFirma()">Firmar documento</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Modal nuevo documento -->
     <div id="modal-nuevo-doc" class="modal-backdrop hidden">
       <div class="modal" style="max-width:520px">
@@ -1368,6 +1553,10 @@ async function renderDocumentos(carpetaId = null, carpetaNombre = null) {
           <button class="modal-close" onclick="closeModal('modal-nuevo-doc')">×</button>
         </div>
         <div id="ndoc-err" class="alert alert-danger hidden mt-8"></div>
+        <div class="form-group mt-12">
+          <label class="form-label">Área *</label>
+          <select id="ndoc-area" class="form-select"></select>
+        </div>
         <div class="form-group mt-12">
           <label class="form-label">Nombre del documento *</label>
           <input id="ndoc-nombre" class="form-input" placeholder="Ej. Contrato de servicio"/>
@@ -1438,7 +1627,7 @@ async function cargarDocumentosDeCarpeta(carpetaId, carpetaNombre) {
     content.innerHTML = `
       <div style="margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
         <button class="btn btn-ghost btn-sm" onclick="renderDocumentos()">← Volver</button>
-        ${SESSION.nivel <= 3 ? `<button class="btn btn-primary btn-sm" onclick="openModal('modal-nuevo-doc')">+ Nuevo documento</button>` : ''}
+        ${SESSION.nivel <= 3 ? `<button class="btn btn-primary btn-sm" onclick="poblarAreaNuevoDoc();openModal('modal-nuevo-doc')">` : ''}
       </div>
       ${!docs.length 
         ? `<div style="text-align:center;padding:40px;color:var(--muted);font-size:13px">Sin documentos en esta carpeta</div>`
@@ -1466,7 +1655,7 @@ async function cargarDocumentosDeCarpeta(carpetaId, carpetaNombre) {
                   <td>
                     <div style="display:flex;gap:6px">
                       <button class="btn btn-ghost btn-sm" onclick="verDocumento('${d.id}')">Ver</button>
-                      ${SESSION.nivel <= 3 && !d.firma_digital ? `<button class="btn btn-primary btn-sm" onclick="firmarDocumento('${d.id}', ${JSON.stringify(d.contenido_texto || d.nombre)})">Firmar</button>` : ''}
+                      ${SESSION.nivel <= 3 && !d.firma_digital ? `<button class="btn btn-primary btn-sm" onclick="firmarDocumento('${d.id}')">Firmar</button>` : ''}
                     </div>
                   </td>
                 </tr>`).join('')}
@@ -1513,7 +1702,25 @@ async function eliminarCarpeta(id) {
   }
 }
 
+function poblarAreaNuevoDoc() {
+  const select = document.getElementById('ndoc-area');
+  const areas = ['Humanitaria', 'PsicoSocial', 'Legal', 'Comunicacion', 'Almacen', 'TI'];
+
+  if (parseInt(SESSION.nivel) === 1) {
+    // Admin: puede elegir cualquier área
+    select.disabled = false;
+    select.innerHTML = areas.map(a => 
+      `<option value="${a}" ${a === SESSION.area ? 'selected' : ''}>${a}</option>`
+    ).join('');
+  } else {
+    // Colaborador: solo su propia área, bloqueada
+    select.disabled = true;
+    select.innerHTML = `<option value="${esc(SESSION.area)}" selected>${esc(SESSION.area)}</option>`;
+  }
+}
+
 async function guardarNuevoDoc(carpetaId) {
+  const area    = document.getElementById('ndoc-area').value;
   const nombre  = document.getElementById('ndoc-nombre').value.trim();
   const texto   = document.getElementById('ndoc-texto').value.trim();
   const archivo = document.getElementById('ndoc-archivo').files[0];
@@ -1521,12 +1728,14 @@ async function guardarNuevoDoc(carpetaId) {
   const btn     = document.getElementById('btn-nuevo-doc');
 
   errEl.classList.add('hidden');
+  if (!area)   { showErr(errEl, 'El área es requerida'); return; }
   if (!nombre) { showErr(errEl, 'El nombre es requerido'); return; }
   if (!texto && !archivo) { showErr(errEl, 'Debes incluir texto o un archivo'); return; }
 
   setLoading(btn, true);
   try {
     const formData = new FormData();
+    formData.append('area', area);
     formData.append('nombre', nombre);
     if (texto)     formData.append('contenido_texto', texto);
     if (archivo)   formData.append('archivo', archivo);
@@ -1545,6 +1754,7 @@ async function guardarNuevoDoc(carpetaId) {
     closeModal('modal-nuevo-doc');
     document.getElementById('ndoc-nombre').value = '';
     document.getElementById('ndoc-texto').value = '';
+    document.getElementById('ndoc-archivo').value = '';
     await cargarDocumentosDeCarpeta(carpetaId, '');
   } catch(e) {
     showErr(errEl, e.message);
@@ -1608,6 +1818,100 @@ async function verDocumento(id) {
     }
   } catch(e) {
     toast('Error: ' + e.message, true);
+  }
+}
+
+let _docEnFirma = null;
+
+async function firmarDocumento(id) {
+  _docEnFirma = null;
+  document.getElementById('firma-loading').classList.remove('hidden');
+  document.getElementById('firma-content').classList.add('hidden');
+  document.getElementById('firma-err').classList.add('hidden');
+  document.getElementById('firma-keyfile').value = '';
+  openModal('modal-firmar-doc');
+
+  try {
+    const r = await API.get('/api/documentos/ver?id=' + id);
+    const doc = r.documento;
+    _docEnFirma = doc;
+
+    document.getElementById('firma-doc-meta').innerHTML = `
+      <div><strong>${esc(doc.nombre)}</strong></div>
+      <div class="text-xs muted">Área: ${esc(doc.area)} · Versión ${doc.version} · ${esc(doc.creado_en)}</div>`;
+
+    const preview = document.getElementById('firma-doc-preview');
+    let contenido = '';
+    if (doc.contenido_texto) {
+      contenido += doc.contenido_texto;
+    }
+    if (doc.archivo_nombre) {
+      contenido += (doc.contenido_texto ? '\n\n' : '') + `[Archivo adjunto: ${doc.archivo_nombre} · ${doc.archivo_tipo}]`;
+    }
+    preview.textContent = contenido || '(documento vacío)';
+
+    document.getElementById('firma-loading').classList.add('hidden');
+    document.getElementById('firma-content').classList.remove('hidden');
+  } catch (e) {
+    document.getElementById('firma-loading').innerHTML = `
+      <div class="alert alert-danger">No se pudo cargar el documento: ${esc(e.message)}</div>`;
+  }
+}
+
+async function ejecutarFirma() {
+  const fileInput = document.getElementById('firma-keyfile');
+  const errEl = document.getElementById('firma-err');
+  const btn = document.getElementById('btn-firmar');
+  errEl.classList.add('hidden');
+
+  if (!fileInput.files[0]) {
+    showErr(errEl, 'Selecciona tu archivo de llave privada (.key)');
+    return;
+  }
+
+  if (!_docEnFirma) {
+    showErr(errEl, 'No hay documento cargado para firmar');
+    return;
+  }
+
+  setLoading(btn, true);
+  try {
+    const contenidoAFirmar = (_docEnFirma.contenido_texto || '') + '|' + (_docEnFirma.contenido_cifrado || '');
+
+    const pemText = await fileInput.files[0].text();
+    const privateKey = await importarLlavePEM(pemText);
+
+    const bytes = new TextEncoder().encode(contenidoAFirmar);
+    const firmaBuffer = await window.crypto.subtle.sign(
+      { name: 'RSASSA-PKCS1-v1_5' },
+      privateKey,
+      bytes
+    );
+    const firmaB64 = btoa(String.fromCharCode(...new Uint8Array(firmaBuffer)));
+
+    const formData = new FormData();
+    formData.append('id', _docEnFirma.id);
+    formData.append('firma', firmaB64);
+
+    const r = await fetch(BASE_URL + '/api/documentos/firmar', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + API.token },
+      body: formData
+    });
+
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'No se pudo firmar el documento');
+
+    toast('Documento firmado correctamente.');
+    closeModal('modal-firmar-doc');
+
+    const carpetaId = _docEnFirma.carpeta_id || 'sin-clasificar';
+    await cargarDocumentosDeCarpeta(carpetaId, '');
+    _docEnFirma = null;
+  } catch (e) {
+    showErr(errEl, e.message);
+  } finally {
+    setLoading(btn, false, 'Firmar documento');
   }
 }
 
@@ -1692,6 +1996,49 @@ async function solicitarRecuperacion() {
     result.classList.remove('hidden');
     btn.disabled = false;
     btn.innerHTML = 'Iniciar recuperación del administrador';
+  }
+}
+
+async function cargarCertProfile() {
+  const cont = document.getElementById('profile-cert-content');
+  if (!cont) return;
+
+  try {
+    const r = await API.post('/api/certificados/verificar', { usuario_id: SESSION.id });
+
+    if (r.status !== 'valido') {
+      cont.innerHTML = `
+        <div style="text-align:center;padding:24px 0">
+          <div style="color:var(--muted);font-size:14px;margin-bottom:6px">Sin certificado activo.</div>
+          <div style="color:var(--hint);font-size:12px">Contacta al administrador para que lo emita.</div>
+        </div>`;
+      return;
+    }
+
+    const dias = Math.ceil((new Date(r.certificado.fecha_expiracion) - new Date()) / 86400000);
+    const colorVigencia = dias < 30 ? 'var(--warn)' : 'var(--text)';
+
+    cont.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px">
+        <div>
+          <div class="muted text-xs">Estado</div>
+          <div style="font-weight:600;color:var(--success)">● Activo</div>
+        </div>
+        <div>
+          <div class="muted text-xs">Vigencia</div>
+          <div style="font-weight:600;color:${colorVigencia}">${dias} días restantes</div>
+          <div class="muted text-xs">Hasta ${esc(r.certificado.fecha_expiracion.split(' ')[0])}</div>
+        </div>
+        <div>
+          <div class="muted text-xs">Hash SHA-256</div>
+          <div style="font-family:monospace;font-size:11px;word-break:break-all">${esc(r.certificado.hash.substring(0, 32))}…</div>
+        </div>
+      </div>
+      <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:16px;font-size:12px;color:var(--muted)">
+        ${SESSION.nivel == 1 ? 'Para renovar tu certificado, ve a la sección <strong>Certificados</strong>.' : 'Para renovar o reemplazar tu certificado, contacta al administrador.'}
+      </div>`;
+  } catch (e) {
+    cont.innerHTML = `<div style="color:var(--muted);font-size:13px;text-align:center;padding:20px">No se pudo cargar el certificado.</div>`;
   }
 }
 
@@ -1963,14 +2310,14 @@ async function cargarRepositorio() {
 /* ════════════════════════════════════════
    EDIT MODAL  →  POST /api/usuarios/editar.php
 ════════════════════════════════════════ */
-function openEditModal(id, nombre, area, nivel) {
+async function openEditModal(id, nombre, area, nivel) {
   document.getElementById('medit-id').value   = id;
   document.getElementById('medit-sub').textContent = nombre;
   document.getElementById('medit-area').value = area;
   document.getElementById('medit-nivel').value = nivel <= 1 ? 2 : nivel;
   document.getElementById('medit-err').classList.add('hidden');
 
-  /* set perm toggles to match the nivel */
+  /* set perm toggles to match the nivel as fallback */
   const perms = ROLES[nivel]?.perms || ['r'];
   document.querySelectorAll('#perm-toggles .perm-toggle').forEach(el => {
     const p = el.dataset.perm;
@@ -1978,7 +2325,20 @@ function openEditModal(id, nombre, area, nivel) {
   });
 
   openModal('modal-edit');
+
+  /* override with real effective permissions from backend */
+  try {
+    const r = await API.get('/api/usuarios/obtener-permisos?usuario_id=' + id);
+    document.querySelectorAll('#perm-toggles .perm-toggle').forEach(el => {
+      const p = el.dataset.perm;
+      const activo = r.permisos[p] === 1;
+      el.className = 'perm-toggle ' + (activo ? 'perm-on' : 'perm-off');
+    });
+  } catch (e) {
+    /* si falla, los toggles quedan con el fallback del nivel */
+  }
 }
+
 
 async function saveEdit() {
   const id    = document.getElementById('medit-id').value;
@@ -1988,9 +2348,16 @@ async function saveEdit() {
   const btn   = document.getElementById('btn-save-edit');
   errEl.classList.add('hidden');
 
+  /* recolectar permisos seleccionados de los toggles */
+  const permisos = {};
+  document.querySelectorAll('#perm-toggles .perm-toggle').forEach(el => {
+    permisos[el.dataset.perm] = el.classList.contains('perm-on') ? 1 : 0;
+  });
+
   setLoading(btn, true);
   try {
     await API.post('/api/usuarios/editar', { usuario_id: id, nivel, area });
+    await API.post('/api/usuarios/actualizar-permisos', { usuario_id: id, permisos });
     toast('Cambios guardados correctamente.');
     closeModal('modal-edit');
     renderUsers();
@@ -2104,12 +2471,6 @@ const iPlus  = () => `<svg width="13" height="13" viewBox="0 0 16 16" fill="none
 (async function init() {
   if (API.token) {
     try {
-      /* Try to fetch user list to validate the token is still good.
-         Adapt this to whatever "GET /api/auth/me.php" you may add later. */
-      const users = await API.get('/api/usuarios/listar');
-      /* We don't know the current user's details from just the token,
-         so we fall back to a minimal session. Add GET /api/auth/me.php
-         to return the logged-in user's info for proper auto-login. */
       const me = await API.get('/api/auth/me');
       SESSION = me.usuario;
       enterApp();

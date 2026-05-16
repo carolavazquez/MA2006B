@@ -11,7 +11,7 @@ class DocumentosController {
     }
 
     public function listar() {
-        $payload = verificarAcceso(4);
+        $payload = verificarAcceso(4, null, 'r');
         
         $filtros = ["d.area = ?"];
         $valores = [$payload['area']];
@@ -58,7 +58,7 @@ class DocumentosController {
     }
 
     public function ver() {
-        $payload = verificarAcceso(4);
+        $payload = verificarAcceso(4, null, 'r');
         $id = $_GET['id'] ?? '';
 
         if (!$id) return $this->error(400, 'id es requerido');
@@ -81,7 +81,7 @@ class DocumentosController {
     }
 
     public function crear() {
-        $payload = verificarAcceso(3);
+        $payload = verificarAcceso(3, null, 'w');
 
         $nombre = $_POST['nombre'] ?? '';
         $area = $_POST['area'] ?? $payload['area'];
@@ -126,7 +126,7 @@ class DocumentosController {
     }
 
     public function editar() {
-        $payload = verificarAcceso(3);
+        $payload = verificarAcceso(3, null, 'w');
         $body = json_decode(file_get_contents('php://input'), true);
         $id = $body['id'] ?? '';
 
@@ -168,7 +168,7 @@ class DocumentosController {
     }
 
     public function firmar() {
-        $payload = verificarAcceso(3);
+        $payload = verificarAcceso(3, null, 'w');
 
         $id          = $_POST['id']          ?? '';
         $firma_b64   = $_POST['firma']       ?? '';
@@ -196,7 +196,7 @@ class DocumentosController {
         if (!$cert) return $this->error(403, 'Necesitas un certificado activo para firmar documentos');
 
         // Verificar la firma con la clave pública
-        $contenido = $doc['contenido_texto'] ?: $doc['contenido_cifrado'];
+        $contenido = ($doc['contenido_texto'] ?? '') . '|' . ($doc['contenido_cifrado'] ?? '');
         $firma = base64_decode($firma_b64);
         $clave_publica = openssl_get_publickey($cert['clave_publica']);
         $verificado = openssl_verify($contenido, $firma, $clave_publica, OPENSSL_ALGO_SHA256);
@@ -211,7 +211,7 @@ class DocumentosController {
 
     public function autorizar()
     {
-        $payload = verificarAcceso(1);
+        $payload = verificarAcceso(1, null, 'x');
         $body = json_decode(file_get_contents('php://input'), true);
 
         $documento_id = $body['documento_id'] ?? '';
@@ -255,7 +255,7 @@ class DocumentosController {
 
     public function listarAutorizados()
     {
-        $payload = verificarAcceso(4);
+        $payload = verificarAcceso(4, null, 'r');
 
         if ((int) $payload['nivel'] !== 4) {
             return $this->error(403, 'Este endpoint es solo para usuarios nivel 4');
@@ -280,7 +280,7 @@ class DocumentosController {
 
     public function mover()
     {
-        $payload = verificarAcceso(2);
+        $payload = verificarAcceso(2, null, 'w');
         $body = json_decode(file_get_contents('php://input'), true);
 
         $id = $body['id'] ?? '';
