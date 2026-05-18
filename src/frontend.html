@@ -747,6 +747,11 @@ function buildSidebar() {
     ]});
   }
 
+  sections.push({ label: 'Comunicación', items: [
+    { id: 'anuncios', icon: iBell, label: 'Anuncios' },
+    { id: 'mensajes', icon: iList, label: 'Mensajes' },
+  ]});
+
   nav.innerHTML = sections.map(s => `
     <div class="nav-sec">${s.label}</div>
     ${s.items.map(item => `
@@ -778,6 +783,8 @@ function navigateTo(page) {
     profile:   renderProfile,
     docs:      renderDocumentos,
     recuperacion: renderRecuperacion,
+    anuncios:   renderAnuncios,
+    mensajes:    renderMensajes,
   };
   if (pages[page]) pages[page]();
 }
@@ -1181,6 +1188,369 @@ function renderNotifList(users) {
           </div>`;
       }).join('')}
     </div>`;
+}
+
+/* ════════════════════════════════════════
+   PAGE: ANUNCIOS
+════════════════════════════════════════ */
+
+async function renderAnuncios() {
+  const main = document.getElementById('main');
+  const puedePublicar = SESSION.nivel <= 2;
+
+  main.innerHTML = `
+    <div class="page-head">
+      <h1>Anuncios</h1>
+      <p>Comunicaciones institucionales</p>
+    </div>
+    <div class="page-body">
+      ${puedePublicar ? `
+        <div style="margin-bottom:16px;text-align:right">
+          <button class="btn btn-primary" onclick="openModal('modal-nuevo-anuncio')">+ Nuevo anuncio</button>
+        </div>
+      ` : ''}
+      <div id="anuncios-wrap">
+        <div style="padding:30px;text-align:center"><span class="spin spin-dark"></span></div>
+      </div>
+    </div>
+
+    <!-- Modal nuevo anuncio -->
+    <div id="modal-nuevo-anuncio" class="modal-backdrop hidden">
+      <div class="modal" style="max-width:560px">
+        <div class="modal-head">
+          <div class="modal-title">Nuevo anuncio</div>
+          <button class="modal-close" onclick="closeModal('modal-nuevo-anuncio')">×</button>
+        </div>
+        <div id="nanuncio-err" class="alert alert-danger hidden mt-8"></div>
+
+        <div class="form-group mt-12">
+          <label class="form-label">Título *</label>
+          <input id="nanuncio-titulo" class="form-input" placeholder="Ej. Mantenimiento del sistema">
+        </div>
+
+        <div class="form-group mt-12">
+          <label class="form-label">Alcance *</label>
+          <select id="nanuncio-alcance" class="form-select" onchange="toggleAlcanceCampos()">
+            <option value="todos">Todos los colaboradores</option>
+            <option value="area">Por área</option>
+            <option value="nivel">Por nivel</option>
+          </select>
+        </div>
+
+        <div class="form-group mt-12 hidden" id="nanuncio-area-wrap">
+          <label class="form-label">Área</label>
+          <select id="nanuncio-area" class="form-select">
+            <option value="Humanitaria">Humanitaria</option>
+            <option value="PsicoSocial">PsicoSocial</option>
+            <option value="Legal">Legal</option>
+            <option value="Comunicacion">Comunicacion</option>
+            <option value="Almacen">Almacen</option>
+            <option value="TI">TI</option>
+          </select>
+        </div>
+
+        <div class="form-group mt-12 hidden" id="nanuncio-nivel-wrap">
+          <label class="form-label">Nivel</label>
+          <select id="nanuncio-nivel" class="form-select">
+            <option value="2">Nivel 2 — Coordinador</option>
+            <option value="3">Nivel 3 — Operativo</option>
+            <option value="4">Nivel 4 — Consulta</option>
+          </select>
+        </div>
+
+        <div class="form-group mt-12">
+          <label class="form-label">Contenido *</label>
+          <textarea id="nanuncio-contenido" class="form-input" rows="6" style="height:auto;padding:10px" placeholder="Mensaje del anuncio..."></textarea>
+        </div>
+
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px">
+          <button class="btn btn-ghost" onclick="closeModal('modal-nuevo-anuncio')">Cancelar</button>
+          <button class="btn btn-primary" id="btn-nuevo-anuncio" onclick="guardarAnuncio()">Publicar</button>
+        </div>
+      </div>
+    </div>`;
+
+  cargarAnuncios();
+}
+
+
+
+function toggleAlcanceCampos() {
+  const alcance = document.getElementById('nanuncio-alcance').value;
+  document.getElementById('nanuncio-area-wrap').classList.toggle('hidden', alcance !== 'area');
+  document.getElementById('nanuncio-nivel-wrap').classList.toggle('hidden', alcance !== 'nivel');
+}
+
+async function guardarAnuncio() {
+  const titulo = document.getElementById('nanuncio-titulo').value.trim();
+  const contenido = document.getElementById('nanuncio-contenido').value.trim();
+  const alcance = document.getElementById('nanuncio-alcance').value;
+  const area = document.getElementById('nanuncio-area').value;
+  const nivel = parseInt(document.getElementById('nanuncio-nivel').value);
+  const errEl = document.getElementById('nanuncio-err');
+  const btn = document.getElementById('btn-nuevo-anuncio');
+
+  errEl.classList.add('hidden');
+  if (!titulo) { showErr(errEl, 'El título es requerido'); return; }
+  if (!contenido) { showErr(errEl, 'El contenido es requerido'); return; }
+
+  const body = { titulo, contenido, alcance };
+  if (alcance === 'area') body.area = area;
+  if (alcance === 'nivel') body.nivel = nivel;
+
+  setLoading(btn, true);
+  try {
+    const r = await API.post('/api/anuncios/crear', body);
+    toast(r.mensaje || 'Anuncio publicado');
+    closeModal('modal-nuevo-anuncio');
+    document.getElementById('nanuncio-titulo').value = '';
+    document.getElementById('nanuncio-contenido').value = '';
+    cargarAnuncios();
+  } catch (e) {
+    showErr(errEl, e.message);
+  } finally {
+    setLoading(btn, false, 'Publicar');
+  }
+}
+
+async function cargarAnuncios() {
+  const wrap = document.getElementById('anuncios-wrap');
+  try {
+    const r = await API.get('/api/anuncios/listar');
+    const anuncios = r.anuncios || [];
+
+    if (!anuncios.length) {
+      wrap.innerHTML = `<div class="card" style="text-align:center;padding:40px;color:var(--muted)">Sin anuncios todavía.</div>`;
+      return;
+    }
+
+    wrap.innerHTML = anuncios.map(a => {
+      const alcanceLabel = a.alcance === 'todos' ? 'Todos' 
+        : a.alcance === 'area' ? `Área: ${esc(a.area)}` 
+        : `Nivel: ${a.nivel}`;
+      return `
+        <div class="card" style="margin-bottom:12px">
+          <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px">
+            <h3 style="margin:0;font-size:16px">${esc(a.titulo)}</h3>
+            <span class="badge badge-gray" style="font-size:11px">${alcanceLabel}</span>
+          </div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:12px">
+            ${esc(a.autor_nombre)} · ${esc(a.creado_en)}
+          </div>
+          <div style="white-space:pre-wrap;line-height:1.5">${esc(a.contenido)}</div>
+        </div>`;
+    }).join('');
+  } catch (e) {
+    wrap.innerHTML = `<div class="alert alert-danger">${esc(e.message)}</div>`;
+  }
+}
+
+async function openModalNuevoMensaje() {
+  document.getElementById('nmsg-asunto').value = '';
+  document.getElementById('nmsg-contenido').value = '';
+  document.getElementById('nmsg-err').classList.add('hidden');
+  
+  const select = document.getElementById('nmsg-destinatario');
+  select.innerHTML = '<option value="">Cargando contactos...</option>';
+  
+  openModal('modal-nuevo-mensaje');
+
+  try {
+    const r = await API.get('/api/mensajes/contactos');
+    const contactos = r.contactos || [];
+
+    if (!contactos.length) {
+      select.innerHTML = '<option value="">No hay contactos disponibles</option>';
+      return;
+    }
+
+    select.innerHTML = '<option value="">Selecciona...</option>' + 
+      contactos.map(c => 
+        `<option value="${c.id}">${esc(c.nombre)} — ${esc(c.area)} · Nivel ${c.nivel}</option>`
+      ).join('');
+  } catch (e) {
+    select.innerHTML = `<option value="">Error: ${esc(e.message)}</option>`;
+  }
+}
+
+async function guardarNuevoMensaje() {
+  const destinatario_id = document.getElementById('nmsg-destinatario').value;
+  const asunto = document.getElementById('nmsg-asunto').value.trim();
+  const contenido = document.getElementById('nmsg-contenido').value.trim();
+  const errEl = document.getElementById('nmsg-err');
+  const btn = document.getElementById('btn-nuevo-mensaje');
+
+  errEl.classList.add('hidden');
+  if (!destinatario_id) { showErr(errEl, 'Selecciona un destinatario'); return; }
+  if (!asunto) { showErr(errEl, 'El asunto es requerido'); return; }
+  if (!contenido) { showErr(errEl, 'El mensaje es requerido'); return; }
+
+  setLoading(btn, true);
+  try {
+    const r = await API.post('/api/mensajes/iniciar', { destinatario_id, asunto, contenido });
+    toast('Mensaje enviado');
+    closeModal('modal-nuevo-mensaje');
+    abrirHilo(r.hilo_id);
+  } catch (e) {
+    showErr(errEl, e.message);
+  } finally {
+    setLoading(btn, false, 'Enviar');
+  }
+}
+
+/* ════════════════════════════════════════
+   PAGE: MENSAJES
+════════════════════════════════════════ */
+
+async function renderMensajes() {
+  const main = document.getElementById('main');
+  main.innerHTML = `
+    <div class="page-head">
+      <h1>Mensajes</h1>
+      <p>Conversaciones directas</p>
+    </div>
+    <div class="page-body">
+      <div style="margin-bottom:16px;text-align:right">
+        <button class="btn btn-primary" onclick="openModalNuevoMensaje()">+ Nuevo mensaje</button>
+      </div>
+      <div id="mensajes-wrap">
+        <div style="padding:30px;text-align:center"><span class="spin spin-dark"></span></div>
+      </div>
+
+      <div id="modal-nuevo-mensaje" class="modal-backdrop hidden">
+        <div class="modal" style="max-width:560px">
+          <div class="modal-head">
+            <div class="modal-title">Nuevo mensaje</div>
+            <button class="modal-close" onclick="closeModal('modal-nuevo-mensaje')">×</button>
+          </div>
+          <div id="nmsg-err" class="alert alert-danger hidden mt-8"></div>
+
+          <div class="form-group mt-12">
+            <label class="form-label">Destinatario *</label>
+            <select id="nmsg-destinatario" class="form-select">
+              <option value="">Cargando contactos...</option>
+            </select>
+          </div>
+
+          <div class="form-group mt-12">
+            <label class="form-label">Asunto *</label>
+            <input id="nmsg-asunto" class="form-input" placeholder="Asunto del mensaje">
+          </div>
+
+          <div class="form-group mt-12">
+            <label class="form-label">Mensaje *</label>
+            <textarea id="nmsg-contenido" class="form-input" rows="5" style="height:auto;padding:10px" placeholder="Escribe tu mensaje..."></textarea>
+          </div>
+
+          <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px">
+            <button class="btn btn-ghost" onclick="closeModal('modal-nuevo-mensaje')">Cancelar</button>
+            <button class="btn btn-primary" id="btn-nuevo-mensaje" onclick="guardarNuevoMensaje()">Enviar</button>
+          </div>
+        </div>
+      </div>`;
+
+  cargarHilos();
+}
+
+async function cargarHilos() {
+  const wrap = document.getElementById('mensajes-wrap');
+  try {
+    const r = await API.get('/api/mensajes/hilos');
+    const hilos = r.hilos || [];
+
+    if (!hilos.length) {
+      wrap.innerHTML = `<div class="card" style="text-align:center;padding:40px;color:var(--muted)">No tienes conversaciones todavía.</div>`;
+      return;
+    }
+
+    wrap.innerHTML = `
+      <div class="card" style="padding:0;overflow:hidden">
+        ${hilos.map(h => {
+          const otrosParticipantes = (h.participantes || [])
+            .filter(p => p.id !== SESSION.id)
+            .map(p => p.nombre)
+            .join(', ');
+          return `
+            <div onclick="abrirHilo('${h.id}')" style="padding:14px 16px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;justify-content:space-between;align-items:center" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
+              <div style="flex:1;min-width:0">
+                <div style="font-weight:500;font-size:14px;margin-bottom:4px">${esc(h.asunto)}</div>
+                <div style="font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Con: ${esc(otrosParticipantes || '—')}</div>
+              </div>
+              <div style="text-align:right;font-size:11px;color:var(--muted);margin-left:12px;white-space:nowrap">
+                <div>${esc(h.actualizado_en.split(' ')[0])}</div>
+                <div>${h.total_mensajes} mensaje${h.total_mensajes > 1 ? 's' : ''}</div>
+              </div>
+            </div>`;
+        }).join('')}
+      </div>`;
+  } catch (e) {
+    wrap.innerHTML = `<div class="alert alert-danger">${esc(e.message)}</div>`;
+  }
+}
+
+async function abrirHilo(hiloId) {
+  const main = document.getElementById('main');
+  main.innerHTML = `
+    <div class="page-head">
+      <button class="btn btn-ghost btn-sm" onclick="navigateTo('mensajes')">← Volver</button>
+      <h1 id="hilo-asunto" style="margin-top:8px">Cargando...</h1>
+      <p id="hilo-participantes" class="muted text-xs"></p>
+    </div>
+    <div class="page-body" style="max-width:780px">
+      <div id="hilo-mensajes" style="margin-bottom:20px">
+        <div style="padding:30px;text-align:center"><span class="spin spin-dark"></span></div>
+      </div>
+      <div class="card">
+        <div class="card-title" style="margin-bottom:8px">Responder</div>
+        <textarea id="responder-contenido" class="form-input" rows="4" style="height:auto;padding:10px" placeholder="Escribe tu respuesta..."></textarea>
+        <div id="responder-err" class="alert alert-danger hidden mt-8"></div>
+        <div style="text-align:right;margin-top:12px">
+          <button class="btn btn-primary" id="btn-responder" onclick="enviarRespuesta('${hiloId}')">Enviar respuesta</button>
+        </div>
+      </div>
+    </div>`;
+
+  try {
+    const r = await API.get('/api/mensajes/ver?id=' + hiloId);
+    document.getElementById('hilo-asunto').textContent = r.hilo.asunto;
+    document.getElementById('hilo-participantes').textContent = 
+      'Participantes: ' + r.participantes.map(p => `${p.nombre} (${p.area})`).join(', ');
+
+    const cont = document.getElementById('hilo-mensajes');
+    cont.innerHTML = r.mensajes.map(m => {
+      const esMio = m.autor_id === SESSION.id;
+      return `
+        <div style="display:flex;justify-content:${esMio ? 'flex-end' : 'flex-start'};margin-bottom:12px">
+          <div style="max-width:75%;background:${esMio ? 'var(--primary,#c84c2a)' : 'var(--bg)'};color:${esMio ? '#fff' : 'var(--text)'};padding:10px 14px;border-radius:12px">
+            ${!esMio ? `<div style="font-size:11px;font-weight:600;margin-bottom:4px;opacity:0.7">${esc(m.autor_nombre)}</div>` : ''}
+            <div style="white-space:pre-wrap;line-height:1.4">${esc(m.contenido)}</div>
+            <div style="font-size:10px;margin-top:4px;opacity:0.6">${esc(m.creado_en)}</div>
+          </div>
+        </div>`;
+    }).join('');
+  } catch (e) {
+    document.getElementById('hilo-mensajes').innerHTML = `<div class="alert alert-danger">${esc(e.message)}</div>`;
+  }
+}
+
+async function enviarRespuesta(hiloId) {
+  const contenido = document.getElementById('responder-contenido').value.trim();
+  const errEl = document.getElementById('responder-err');
+  const btn = document.getElementById('btn-responder');
+
+  errEl.classList.add('hidden');
+  if (!contenido) { showErr(errEl, 'Escribe un mensaje'); return; }
+
+  setLoading(btn, true);
+  try {
+    await API.post('/api/mensajes/responder', { hilo_id: hiloId, contenido });
+    document.getElementById('responder-contenido').value = '';
+    abrirHilo(hiloId);
+  } catch (e) {
+    showErr(errEl, e.message);
+  } finally {
+    setLoading(btn, false, 'Enviar respuesta');
+  }
 }
 
 /* ════════════════════════════════════════

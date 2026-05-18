@@ -119,6 +119,47 @@ switch ($resource) {
 
     case 'reemitir-mio': echo json_encode($controller->reemitirMio()); break;
 
+    case 'anuncios':
+        require_once __DIR__ . '/../controllers/AnunciosController.php';
+        $controller = new AnunciosController();
+        switch ($action) {
+            case 'crear':
+                echo json_encode($controller->crear());
+                break;
+            case 'listar':
+                echo json_encode($controller->listar());
+                break;
+            default:
+                http_response_code(404);
+                echo json_encode(['error' => 'Acción no encontrada']);
+        }
+        break;
+
+    case 'mensajes':
+        require_once __DIR__ . '/../controllers/MensajesController.php';
+        $controller = new MensajesController();
+        switch ($action) {
+            case 'iniciar':
+                echo json_encode($controller->iniciarHilo());
+                break;
+            case 'responder':
+                echo json_encode($controller->responder());
+                break;
+            case 'hilos':
+                echo json_encode($controller->listarHilos());
+                break;
+            case 'ver':
+                echo json_encode($controller->verHilo());
+                break;
+            case 'contactos':
+                echo json_encode($controller->contactos());
+                break;
+            default:
+                http_response_code(404);
+                echo json_encode(['error' => 'Acción no encontrada']);
+        }
+        break;
+
 
     default:
         http_response_code(404);

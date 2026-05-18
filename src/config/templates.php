@@ -154,6 +154,35 @@ class Templates {
         return self::layout('Restablecer contraseña', $contenido);
     }
 
+
+    public static function nuevoAnuncio($destinatario_nombre, $autor_nombre, $titulo, $contenido)
+    {
+        $appUrl = env('APP_URL', 'http://localhost:8080');
+        $cuerpo = '
+        <h2 style="margin-top:0;color:#c84c2a">' . htmlspecialchars($titulo) . '</h2>
+        <p>Hola ' . htmlspecialchars($destinatario_nombre) . ',</p>
+        <p><strong>' . htmlspecialchars($autor_nombre) . '</strong> publicó un anuncio:</p>
+        <div style="background:#f9f9f9;padding:16px;border-left:4px solid #c84c2a;margin:16px 0;white-space:pre-wrap">' . htmlspecialchars($contenido) . '</div>
+        <p style="margin-top:24px">
+            <a href="' . htmlspecialchars($appUrl) . '/frontend.html" style="background:#c84c2a;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block">Ver en el sistema</a>
+        </p>';
+        return self::layout('Nuevo anuncio', $cuerpo);
+    }
+
+    public static function nuevoMensaje($destinatario_nombre, $autor_nombre, $asunto, $contenido)
+    {
+        $appUrl = env('APP_URL', 'http://localhost:8080');
+        $cuerpo = '
+        <h2 style="margin-top:0;color:#c84c2a">' . htmlspecialchars($asunto) . '</h2>
+        <p>Hola ' . htmlspecialchars($destinatario_nombre) . ',</p>
+        <p><strong>' . htmlspecialchars($autor_nombre) . '</strong> te envió un mensaje:</p>
+        <div style="background:#f9f9f9;padding:16px;border-left:4px solid #c84c2a;margin:16px 0;white-space:pre-wrap">' . htmlspecialchars($contenido) . '</div>
+        <p style="margin-top:24px">
+            <a href="' . htmlspecialchars($appUrl) . '/frontend.html" style="background:#c84c2a;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block">Responder en el sistema</a>
+        </p>';
+        return self::layout('Nuevo mensaje', $cuerpo);
+    }
+
 }
 
 
