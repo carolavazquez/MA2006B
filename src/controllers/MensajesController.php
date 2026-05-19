@@ -13,7 +13,8 @@ class MensajesController {
         $this->db = getDB();
     }
 
-    public function iniciarHilo() {
+    public function iniciarHilo()
+    {
         $payload = verificarAcceso(4, null, 'w');
 
         $body = json_decode(file_get_contents('php://input'), true);
@@ -34,9 +35,27 @@ class MensajesController {
         $stmt->execute([$destinatario_id]);
         $receptor = $stmt->fetch();
 
-        if (!$receptor) return $this->error(404, 'Destinatario no encontrado');
+        if (!$receptor)
+            return $this->error(404, 'Destinatario no encontrado');
         if (!puedeMandarMensajeA($emisor, $receptor)) {
             return $this->error(403, 'No tienes permitido escribirle a este usuario.');
+        }
+
+        if ($firma) {
+            $stmt = $this->db->prepare("
+            SELECT clave_publica FROM certificados 
+            WHERE usuario_id = ? AND estado = 'activo' AND fecha_expiracion > NOW()
+        ");
+            $stmt->execute([$emisor['id']]);
+            $cert = $stmt->fetch();
+            if (!$cert)
+                return $this->error(403, 'No tienes certificado activo para firmar');
+
+            $firma_bin = base64_decode($firma);
+            $clave_publica = openssl_get_publickey($cert['clave_publica']);
+            $verificado = openssl_verify($contenido, $firma_bin, $clave_publica, OPENSSL_ALGO_SHA256);
+            if ($verificado !== 1)
+                return $this->error(401, 'La firma digital no es válida');
         }
 
         $hilo_id = $this->uuid();
@@ -51,9 +70,9 @@ class MensajesController {
                 ->execute([$hilo_id, $emisor['id'], $hilo_id, $receptor['id']]);
 
             $this->db->prepare("
-                INSERT INTO mensajes (id, hilo_id, autor_id, contenido, firma_digital)
-                VALUES (?, ?, ?, ?, ?)
-            ")->execute([$mensaje_id, $hilo_id, $emisor['id'], $contenido, $firma]);
+            INSERT INTO mensajes (id, hilo_id, autor_id, contenido, firma_digital)
+            VALUES (?, ?, ?, ?, ?)
+        ")->execute([$mensaje_id, $hilo_id, $emisor['id'], $contenido, $firma]);
 
             $this->db->commit();
         } catch (Exception $e) {
@@ -72,7 +91,8 @@ class MensajesController {
         return ['status' => 'ok', 'hilo_id' => $hilo_id, 'mensaje_id' => $mensaje_id];
     }
 
-    public function responder() {
+    public function responder()
+    {
         $payload = verificarAcceso(4, null, 'w');
 
         $body = json_decode(file_get_contents('php://input'), true);
@@ -80,31 +100,48 @@ class MensajesController {
         $contenido = trim($body['contenido'] ?? '');
         $firma = $body['firma'] ?? null;
 
-        if (!$hilo_id || !$contenido) return $this->error(400, 'hilo_id y contenido son requeridos');
+        if (!$hilo_id || !$contenido)
+            return $this->error(400, 'hilo_id y contenido son requeridos');
 
-        $stmt = $this->db->prepare("
-            SELECT 1 FROM mensajes_participantes WHERE hilo_id = ? AND usuario_id = ?
-        ");
+        $stmt = $this->db->prepare("SELECT 1 FROM mensajes_participantes WHERE hilo_id = ? AND usuario_id = ?");
         $stmt->execute([$hilo_id, $payload['sub']]);
-        if (!$stmt->fetch()) return $this->error(403, 'No eres participante de este hilo');
+        if (!$stmt->fetch())
+            return $this->error(403, 'No eres participante de este hilo');
+
+        if ($firma) {
+            $stmt = $this->db->prepare("
+            SELECT clave_publica FROM certificados 
+            WHERE usuario_id = ? AND estado = 'activo' AND fecha_expiracion > NOW()
+        ");
+            $stmt->execute([$payload['sub']]);
+            $cert = $stmt->fetch();
+            if (!$cert)
+                return $this->error(403, 'No tienes certificado activo para firmar');
+
+            $firma_bin = base64_decode($firma);
+            $clave_publica = openssl_get_publickey($cert['clave_publica']);
+            $verificado = openssl_verify($contenido, $firma_bin, $clave_publica, OPENSSL_ALGO_SHA256);
+            if ($verificado !== 1)
+                return $this->error(401, 'La firma digital no es válida');
+        }
 
         $mensaje_id = $this->uuid();
         $this->db->prepare("
-            INSERT INTO mensajes (id, hilo_id, autor_id, contenido, firma_digital)
-            VALUES (?, ?, ?, ?, ?)
-        ")->execute([$mensaje_id, $hilo_id, $payload['sub'], $contenido, $firma]);
+        INSERT INTO mensajes (id, hilo_id, autor_id, contenido, firma_digital)
+        VALUES (?, ?, ?, ?, ?)
+    ")->execute([$mensaje_id, $hilo_id, $payload['sub'], $contenido, $firma]);
 
         $this->db->prepare("UPDATE mensajes_hilos SET actualizado_en = NOW() WHERE id = ?")
             ->execute([$hilo_id]);
 
         $stmt = $this->db->prepare("
-            SELECT u.email, u.nombre, h.asunto, autor.nombre AS autor_nombre
-            FROM mensajes_participantes p
-            JOIN usuarios u ON p.usuario_id = u.id
-            JOIN mensajes_hilos h ON p.hilo_id = h.id
-            JOIN usuarios autor ON autor.id = ?
-            WHERE p.hilo_id = ? AND p.usuario_id != ?
-        ");
+        SELECT u.email, u.nombre, h.asunto, autor.nombre AS autor_nombre
+        FROM mensajes_participantes p
+        JOIN usuarios u ON p.usuario_id = u.id
+        JOIN mensajes_hilos h ON p.hilo_id = h.id
+        JOIN usuarios autor ON autor.id = ?
+        WHERE p.hilo_id = ? AND p.usuario_id != ?
+    ");
         $stmt->execute([$payload['sub'], $hilo_id, $payload['sub']]);
 
         foreach ($stmt->fetchAll() as $d) {

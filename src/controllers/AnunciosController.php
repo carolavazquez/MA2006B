@@ -13,7 +13,8 @@ class AnunciosController {
         $this->db = getDB();
     }
 
-    public function crear() {
+    public function crear()
+    {
         $payload = verificarAcceso(2, null, 'w');
 
         $stmt = $this->db->prepare("SELECT * FROM usuarios WHERE id = ?");
@@ -29,27 +30,55 @@ class AnunciosController {
         $contenido = trim($body['contenido'] ?? '');
         $alcance = $body['alcance'] ?? '';
         $area = $body['area'] ?? null;
-        $nivel = isset($body['nivel']) ? (int)$body['nivel'] : null;
-        $firma = $body['firma'] ?? null;
+        $nivel = isset($body['nivel']) ? (int) $body['nivel'] : null;
+        $firma = $body['firma'] ?? '';
 
-        if (!$titulo || !$contenido) return $this->error(400, 'titulo y contenido son requeridos');
+        if (!$titulo || !$contenido)
+            return $this->error(400, 'titulo y contenido son requeridos');
+        if (!$firma)
+            return $this->error(400, 'La firma digital es obligatoria para publicar anuncios');
         if (!in_array($alcance, ['todos', 'area', 'nivel'])) {
             return $this->error(400, 'Alcance inválido');
         }
 
-        if ((int)$autor['nivel'] === 2) {
+        if ((int) $autor['nivel'] === 2) {
             $alcance = 'area';
             $area = $autor['area'];
         }
 
-        if ($alcance === 'area' && !$area) return $this->error(400, 'Debes especificar el área');
-        if ($alcance === 'nivel' && !$nivel) return $this->error(400, 'Debes especificar el nivel');
+        if ($alcance === 'area' && !$area)
+            return $this->error(400, 'Debes especificar el área');
+        if ($alcance === 'nivel' && !$nivel)
+            return $this->error(400, 'Debes especificar el nivel');
+
+        $stmt = $this->db->prepare("
+        SELECT clave_publica FROM certificados 
+        WHERE usuario_id = ? AND estado = 'activo' AND fecha_expiracion > NOW()
+    ");
+        $stmt->execute([$autor['id']]);
+        $cert = $stmt->fetch();
+        if (!$cert)
+            return $this->error(403, 'Necesitas un certificado activo para firmar anuncios');
+
+        $contenido_firmable = $titulo . '|' . $contenido;
+        $firma_bin = base64_decode($firma);
+        $clave_publica = openssl_get_publickey($cert['clave_publica']);
+        $verificado = openssl_verify($contenido_firmable, $firma_bin, $clave_publica, OPENSSL_ALGO_SHA256);
+
+        if ($verificado !== 1)
+            return $this->error(401, 'La firma digital no es válida');
 
         $where = "activo = 1 AND id != ?";
         $params = [$autor['id']];
 
-        if ($alcance === 'area') { $where .= " AND area = ?"; $params[] = $area; }
-        if ($alcance === 'nivel') { $where .= " AND nivel = ?"; $params[] = $nivel; }
+        if ($alcance === 'area') {
+            $where .= " AND area = ?";
+            $params[] = $area;
+        }
+        if ($alcance === 'nivel') {
+            $where .= " AND nivel = ?";
+            $params[] = $nivel;
+        }
 
         $stmt = $this->db->prepare("SELECT id, email, nombre FROM usuarios WHERE $where");
         $stmt->execute($params);
@@ -57,9 +86,9 @@ class AnunciosController {
 
         $id = $this->uuid();
         $this->db->prepare("
-            INSERT INTO anuncios (id, autor_id, titulo, contenido, alcance, area, nivel, firma_digital)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ")->execute([$id, $autor['id'], $titulo, $contenido, $alcance, $area, $nivel, $firma]);
+        INSERT INTO anuncios (id, autor_id, titulo, contenido, alcance, area, nivel, firma_digital)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ")->execute([$id, $autor['id'], $titulo, $contenido, $alcance, $area, $nivel, $firma]);
 
         foreach ($destinatarios as $d) {
             Mailer::send(

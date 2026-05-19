@@ -1263,6 +1263,12 @@ async function renderAnuncios() {
           <textarea id="nanuncio-contenido" class="form-input" rows="6" style="height:auto;padding:10px" placeholder="Mensaje del anuncio..."></textarea>
         </div>
 
+        <div class="form-group mt-12">
+          <label class="form-label">Tu llave privada (.key) *</label>
+          <input id="nanuncio-keyfile" class="form-input" type="file" accept=".key,.pem" style="padding:6px 12px;height:auto">
+          <div class="text-xs muted mt-8">La firma digital es obligatoria para anuncios. La llave nunca se envía al servidor.</div>
+        </div>
+
         <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px">
           <button class="btn btn-ghost" onclick="closeModal('modal-nuevo-anuncio')">Cancelar</button>
           <button class="btn btn-primary" id="btn-nuevo-anuncio" onclick="guardarAnuncio()">Publicar</button>
@@ -1287,24 +1293,39 @@ async function guardarAnuncio() {
   const alcance = document.getElementById('nanuncio-alcance').value;
   const area = document.getElementById('nanuncio-area').value;
   const nivel = parseInt(document.getElementById('nanuncio-nivel').value);
+  const keyFile = document.getElementById('nanuncio-keyfile').files[0];
   const errEl = document.getElementById('nanuncio-err');
   const btn = document.getElementById('btn-nuevo-anuncio');
 
   errEl.classList.add('hidden');
-  if (!titulo) { showErr(errEl, 'El título es requerido'); return; }
+  if (!titulo)    { showErr(errEl, 'El título es requerido'); return; }
   if (!contenido) { showErr(errEl, 'El contenido es requerido'); return; }
-
-  const body = { titulo, contenido, alcance };
-  if (alcance === 'area') body.area = area;
-  if (alcance === 'nivel') body.nivel = nivel;
+  if (!keyFile)   { showErr(errEl, 'Sube tu llave privada para firmar el anuncio'); return; }
 
   setLoading(btn, true);
   try {
+    const pemText = await keyFile.text();
+    const privateKey = await importarLlavePEM(pemText);
+
+    const contenidoFirmable = titulo + '|' + contenido;
+    const bytes = new TextEncoder().encode(contenidoFirmable);
+    const firmaBuffer = await window.crypto.subtle.sign(
+      { name: 'RSASSA-PKCS1-v1_5' },
+      privateKey,
+      bytes
+    );
+    const firma = btoa(String.fromCharCode(...new Uint8Array(firmaBuffer)));
+
+    const body = { titulo, contenido, alcance, firma };
+    if (alcance === 'area') body.area = area;
+    if (alcance === 'nivel') body.nivel = nivel;
+
     const r = await API.post('/api/anuncios/crear', body);
     toast(r.mensaje || 'Anuncio publicado');
     closeModal('modal-nuevo-anuncio');
     document.getElementById('nanuncio-titulo').value = '';
     document.getElementById('nanuncio-contenido').value = '';
+    document.getElementById('nanuncio-keyfile').value = '';
     cargarAnuncios();
   } catch (e) {
     showErr(errEl, e.message);
@@ -1332,7 +1353,10 @@ async function cargarAnuncios() {
         <div class="card" style="margin-bottom:12px">
           <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px">
             <h3 style="margin:0;font-size:16px">${esc(a.titulo)}</h3>
-            <span class="badge badge-gray" style="font-size:11px">${alcanceLabel}</span>
+            <div style="display:flex;gap:6px">
+              ${a.firma_digital ? '<span class="badge badge-green" style="font-size:11px">✓ Firmado</span>' : ''}
+              <span class="badge badge-gray" style="font-size:11px">${alcanceLabel}</span>
+            </div>
           </div>
           <div style="font-size:12px;color:var(--muted);margin-bottom:12px">
             ${esc(a.autor_nombre)} · ${esc(a.creado_en)}
@@ -1373,21 +1397,43 @@ async function openModalNuevoMensaje() {
   }
 }
 
+function toggleFirmaMensaje() {
+  const wrap = document.getElementById('nmsg-firma-wrap');
+  const checked = document.getElementById('nmsg-firmar').checked;
+  wrap.classList.toggle('hidden', !checked);
+}
+
 async function guardarNuevoMensaje() {
   const destinatario_id = document.getElementById('nmsg-destinatario').value;
   const asunto = document.getElementById('nmsg-asunto').value.trim();
   const contenido = document.getElementById('nmsg-contenido').value.trim();
+  const firmar = document.getElementById('nmsg-firmar').checked;
+  const keyFile = firmar ? document.getElementById('nmsg-keyfile').files[0] : null;
   const errEl = document.getElementById('nmsg-err');
   const btn = document.getElementById('btn-nuevo-mensaje');
 
   errEl.classList.add('hidden');
   if (!destinatario_id) { showErr(errEl, 'Selecciona un destinatario'); return; }
-  if (!asunto) { showErr(errEl, 'El asunto es requerido'); return; }
+  if (!asunto)    { showErr(errEl, 'El asunto es requerido'); return; }
   if (!contenido) { showErr(errEl, 'El mensaje es requerido'); return; }
+  if (firmar && !keyFile) { showErr(errEl, 'Selecciona tu llave privada o desactiva la firma'); return; }
 
   setLoading(btn, true);
   try {
-    const r = await API.post('/api/mensajes/iniciar', { destinatario_id, asunto, contenido });
+    let firma = null;
+    if (firmar) {
+      const pemText = await keyFile.text();
+      const privateKey = await importarLlavePEM(pemText);
+      const bytes = new TextEncoder().encode(contenido);
+      const firmaBuffer = await window.crypto.subtle.sign(
+        { name: 'RSASSA-PKCS1-v1_5' },
+        privateKey,
+        bytes
+      );
+      firma = btoa(String.fromCharCode(...new Uint8Array(firmaBuffer)));
+    }
+
+    const r = await API.post('/api/mensajes/iniciar', { destinatario_id, asunto, contenido, firma });
     toast('Mensaje enviado');
     closeModal('modal-nuevo-mensaje');
     abrirHilo(r.hilo_id);
@@ -1503,6 +1549,15 @@ async function abrirHilo(hiloId) {
       <div class="card">
         <div class="card-title" style="margin-bottom:8px">Responder</div>
         <textarea id="responder-contenido" class="form-input" rows="4" style="height:auto;padding:10px" placeholder="Escribe tu respuesta..."></textarea>
+        <div style="margin-top:8px">
+          <label style="font-size:13px;display:flex;align-items:center;gap:6px">
+            <input type="checkbox" id="responder-firmar" onchange="toggleFirmaRespuesta()">
+            Firmar digitalmente
+          </label>
+          <div id="responder-firma-wrap" class="hidden mt-8">
+            <input id="responder-keyfile" class="form-input" type="file" accept=".key,.pem" style="padding:6px 12px;height:auto">
+          </div>
+        </div>
         <div id="responder-err" class="alert alert-danger hidden mt-8"></div>
         <div style="text-align:right;margin-top:12px">
           <button class="btn btn-primary" id="btn-responder" onclick="enviarRespuesta('${hiloId}')">Enviar respuesta</button>
@@ -1522,7 +1577,7 @@ async function abrirHilo(hiloId) {
       return `
         <div style="display:flex;justify-content:${esMio ? 'flex-end' : 'flex-start'};margin-bottom:12px">
           <div style="max-width:75%;background:${esMio ? 'var(--primary,#c84c2a)' : 'var(--bg)'};color:${esMio ? '#fff' : 'var(--text)'};padding:10px 14px;border-radius:12px">
-            ${!esMio ? `<div style="font-size:11px;font-weight:600;margin-bottom:4px;opacity:0.7">${esc(m.autor_nombre)}</div>` : ''}
+            ${!esMio ? `<div style="font-size:11px;font-weight:600;margin-bottom:4px;opacity:0.7">${esc(m.autor_nombre)}${m.firma_digital ? ' · ✓ Firmado' : ''}</div>` : ''}
             <div style="white-space:pre-wrap;line-height:1.4">${esc(m.contenido)}</div>
             <div style="font-size:10px;margin-top:4px;opacity:0.6">${esc(m.creado_en)}</div>
           </div>
@@ -1533,17 +1588,39 @@ async function abrirHilo(hiloId) {
   }
 }
 
+function toggleFirmaRespuesta() {
+  const wrap = document.getElementById('responder-firma-wrap');
+  const checked = document.getElementById('responder-firmar').checked;
+  wrap.classList.toggle('hidden', !checked);
+}
+
 async function enviarRespuesta(hiloId) {
   const contenido = document.getElementById('responder-contenido').value.trim();
+  const firmar = document.getElementById('responder-firmar').checked;
+  const keyFile = firmar ? document.getElementById('responder-keyfile').files[0] : null;
   const errEl = document.getElementById('responder-err');
   const btn = document.getElementById('btn-responder');
 
   errEl.classList.add('hidden');
   if (!contenido) { showErr(errEl, 'Escribe un mensaje'); return; }
+  if (firmar && !keyFile) { showErr(errEl, 'Selecciona tu llave o desactiva la firma'); return; }
 
   setLoading(btn, true);
   try {
-    await API.post('/api/mensajes/responder', { hilo_id: hiloId, contenido });
+    let firma = null;
+    if (firmar) {
+      const pemText = await keyFile.text();
+      const privateKey = await importarLlavePEM(pemText);
+      const bytes = new TextEncoder().encode(contenido);
+      const firmaBuffer = await window.crypto.subtle.sign(
+        { name: 'RSASSA-PKCS1-v1_5' },
+        privateKey,
+        bytes
+      );
+      firma = btoa(String.fromCharCode(...new Uint8Array(firmaBuffer)));
+    }
+
+    await API.post('/api/mensajes/responder', { hilo_id: hiloId, contenido, firma });
     document.getElementById('responder-contenido').value = '';
     abrirHilo(hiloId);
   } catch (e) {
