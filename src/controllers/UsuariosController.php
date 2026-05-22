@@ -47,58 +47,85 @@ class UsuariosController {
         return ['status' => 'ok', 'usuario' => $usuario, 'historial' => $stmt->fetchAll()];
     }
 
-    public function crear() {
+    public function crear()
+    {
         $admin = verificarAcceso(1, null, 'w');
         $body = json_decode(file_get_contents('php://input'), true);
 
         $nombre = $body['nombre'] ?? '';
-        $email  = $body['email']  ?? '';
-        $nivel  = $body['nivel']  ?? '';
-        $area   = $body['area']   ?? '';
+        $email = $body['email'] ?? '';
+        $nivel = $body['nivel'] ?? '';
+        $area = $body['area'] ?? '';
+        $solo_comunicacion = !empty($body['solo_comunicacion']) ? 1 : 0;
 
-        if (!$nombre || !$email || !$nivel || !$area) return $this->error(400, 'nombre, email, nivel y area son requeridos');
-        if (!in_array((int)$nivel, [2, 3, 4])) return $this->error(400, 'Nivel inválido. Solo se permiten niveles 2, 3 y 4.');
+        if (!$nombre || !$email || !$nivel || !$area)
+            return $this->error(400, 'nombre, email, nivel y area son requeridos');
+        if (!in_array((int) $nivel, [2, 3, 4]))
+            return $this->error(400, 'Nivel inválido. Solo se permiten niveles 2, 3 y 4.');
+
+        if ($solo_comunicacion && (int) $nivel !== 4) {
+            return $this->error(400, 'Solo los niveles 4 pueden marcarse como exclusivos de comunicación');
+        }
 
         $areas_validas = ['Humanitaria', 'PsicoSocial', 'Legal', 'Comunicacion', 'Almacen', 'TI'];
-        if (!in_array($area, $areas_validas)) return $this->error(400, 'Área inválida', ['areas_validas' => $areas_validas]);
+        if (!in_array($area, $areas_validas))
+            return $this->error(400, 'Área inválida', ['areas_validas' => $areas_validas]);
 
         $stmt = $this->db->prepare("SELECT id FROM usuarios WHERE email = ?");
         $stmt->execute([$email]);
-        if ($stmt->fetch()) return $this->error(409, 'Ya existe un usuario con ese email');
+        if ($stmt->fetch())
+            return $this->error(409, 'Ya existe un usuario con ese email');
 
         $id = $this->uuid();
         $password_temporal = bin2hex(random_bytes(8));
         $password_hash = password_hash($password_temporal, PASSWORD_BCRYPT);
 
-        $this->db->prepare("INSERT INTO usuarios (id, nombre, email, password_hash, password_temporal, nivel, area, activo) VALUES (?, ?, ?, ?, ?, ?, ?, 0)")
-            ->execute([$id, $nombre, $email, $password_hash, $password_temporal, $nivel, $area]);
+        $this->db->prepare("
+        INSERT INTO usuarios (id, nombre, email, password_hash, password_temporal, nivel, area, activo, solo_comunicacion)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)
+    ")->execute([$id, $nombre, $email, $password_hash, $password_temporal, $nivel, $area, $solo_comunicacion]);
 
         $this->bitacora($admin['sub'], 'CREAR_USUARIO', 'usuarios', $id);
 
         return [
             'status' => 'ok',
-            'mensaje' => 'Colaborador creado. Acceso inactivo hasta ser activado. Las credenciales se enviarán por correo al activar.'
+            'mensaje' => $solo_comunicacion
+                ? 'Colaborador externo creado (solo comunicaciones). Acceso inactivo hasta ser activado.'
+                : 'Colaborador creado. Acceso inactivo hasta ser activado. Las credenciales se enviarán por correo al activar.'
         ];
     }
 
-    public function activar() {
+    public function activar()
+    {
         $admin = verificarAcceso(1, null, 'x');
         $body = json_decode(file_get_contents('php://input'), true);
         $usuario_id = $body['usuario_id'] ?? '';
 
-        if (!$usuario_id) return $this->error(400, 'usuario_id es requerido');
+        if (!$usuario_id)
+            return $this->error(400, 'usuario_id es requerido');
 
         $stmt = $this->db->prepare("SELECT * FROM usuarios WHERE id = ?");
         $stmt->execute([$usuario_id]);
         $usuario = $stmt->fetch();
 
-        if (!$usuario) return $this->error(404, 'Usuario no encontrado');
-        if ($usuario['activo']) return $this->error(409, 'El usuario ya está activo');
+        if (!$usuario)
+            return $this->error(404, 'Usuario no encontrado');
+        if ($usuario['activo'])
+            return $this->error(409, 'El usuario ya está activo');
 
         $this->db->prepare("UPDATE usuarios SET activo = 1, password_temporal = NULL WHERE id = ?")
             ->execute([$usuario_id]);
 
         $this->bitacora($admin['sub'], 'ACTIVAR_USUARIO', 'usuarios', $usuario_id);
+
+        if ((int) $usuario['solo_comunicacion'] === 1) {
+            Mailer::send(
+                $usuario['email'],
+                'Acceso a canal de comunicación - Casa Monarca',
+                Templates::externoSoloComunicacion($usuario['nombre'], $usuario_id)
+            );
+            return ['status' => 'ok', 'mensaje' => 'Externo activado. Link de comunicación enviado por correo.', 'usuario_afectado' => $usuario['email']];
+        }
 
         if ($usuario['password_temporal']) {
             Mailer::send(

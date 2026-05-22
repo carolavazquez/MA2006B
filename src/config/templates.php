@@ -183,6 +183,47 @@ class Templates {
         return self::layout('Nuevo mensaje', $cuerpo);
     }
 
+
+    public static function nuevaComExterna($admin_nombre, $externo_nombre, $externo_email, $asunto)
+    {
+        $appUrl = env('APP_URL', 'http://localhost:8080');
+        $cuerpo = '
+        <h2 style="margin-top:0;color:#c84c2a">Comunicación externa firmada</h2>
+        <p>Hola ' . htmlspecialchars($admin_nombre) . ',</p>
+        <p>Se recibió una nueva comunicación de un colaborador externo con firma digital verificada:</p>
+        <table style="background:#f9f9f9;padding:16px;border-radius:6px;margin:16px 0;width:100%">
+            <tr><td style="padding:6px 12px"><strong>Remitente:</strong></td><td style="padding:6px 12px">' . htmlspecialchars($externo_nombre) . '</td></tr>
+            <tr><td style="padding:6px 12px"><strong>Email:</strong></td><td style="padding:6px 12px">' . htmlspecialchars($externo_email) . '</td></tr>
+            <tr><td style="padding:6px 12px"><strong>Asunto:</strong></td><td style="padding:6px 12px">' . htmlspecialchars($asunto) . '</td></tr>
+            <tr><td style="padding:6px 12px"><strong>Firma:</strong></td><td style="padding:6px 12px;color:#060">✓ Verificada criptográficamente</td></tr>
+        </table>
+        <p style="margin-top:24px">
+            <a href="' . htmlspecialchars($appUrl) . '/frontend.html" style="background:#c84c2a;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block">Revisar en el sistema</a>
+        </p>';
+        return self::layout('Nueva comunicación externa', $cuerpo);
+    }
+
+    public static function externoSoloComunicacion($nombre, $externo_id)
+    {
+        $appUrl = env('APP_URL', 'http://localhost:8080');
+        $url = $appUrl . '/externo.html?id=' . urlencode($externo_id);
+        $cuerpo = '
+        <h2 style="margin-top:0;color:#c84c2a">Bienvenido como colaborador externo</h2>
+        <p>Hola ' . htmlspecialchars($nombre) . ',</p>
+        <p>Casa Monarca te ha habilitado como colaborador externo para enviar comunicaciones firmadas al sistema. No requieres iniciar sesión en la plataforma.</p>
+        <p>Cuando necesites enviar una comunicación o documento firmado a Casa Monarca, ingresa al siguiente enlace personal:</p>
+        <p style="margin:24px 0">
+            <a href="' . htmlspecialchars($url) . '" style="background:#c84c2a;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block">Canal de comunicación</a>
+        </p>
+        <p style="font-size:13px;color:#888">
+            <strong>Importante:</strong> próximamente recibirás otro correo con tu certificado digital y llave privada. Necesitarás tu llave privada (.key) para firmar cada comunicación que envíes. Guárdala en un lugar seguro.
+        </p>
+        <p style="font-size:13px;color:#888">
+            Cada comunicación que envíes quedará firmada criptográficamente con tu certificado, garantizando autenticidad. Casa Monarca verifica la firma antes de procesar tu mensaje.
+        </p>';
+        return self::layout('Canal de comunicación', $cuerpo);
+    }
+    
 }
 
 

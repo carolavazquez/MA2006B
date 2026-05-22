@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Comunicar con Casa Monarca</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f4f4f4; min-height: 100vh; padding: 40px 24px; }
+    .container { max-width: 600px; margin: 0 auto; }
+    .header { text-align: center; margin-bottom: 32px; }
+    .header h1 { color: #c84c2a; margin: 0 0 4px 0; font-size: 24px; }
+    .header p { color: #666; margin: 0; font-size: 13px; }
+    .card { background: #fff; border-radius: 12px; padding: 28px; box-shadow: 0 2px 12px rgba(0,0,0,.06); }
+    .externo-info { background: #f9f9f9; padding: 12px 14px; border-radius: 6px; font-size: 13px; margin-bottom: 20px; }
+    label { display: block; font-size: 13px; color: #444; margin-bottom: 6px; font-weight: 500; }
+    input, textarea { width: 100%; padding: 11px 14px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; margin-bottom: 16px; font-family: inherit; }
+    textarea { min-height: 120px; resize: vertical; }
+    button { background: #c84c2a; color: #fff; border: 0; padding: 12px 24px; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; width: 100%; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    .alert { padding: 12px 14px; border-radius: 6px; font-size: 13px; margin-top: 16px; }
+    .alert-success { background: #efe; border: 1px solid #cfc; color: #060; }
+    .alert-error { background: #fee; border: 1px solid #fcc; color: #c00; }
+    .hidden { display: none; }
+    .info { font-size: 12px; color: #888; margin-top: -10px; margin-bottom: 16px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Casa Monarca</h1>
+      <p>Canal seguro para colaboradores externos</p>
+    </div>
+
+    <div class="card">
+      <div id="loading" style="text-align:center;padding:30px;color:#888">Cargando...</div>
+
+      <div id="form-section" class="hidden">
+        <div class="externo-info">
+          Te identificamos como <strong id="ext-nombre"></strong> (<span id="ext-email"></span>).
+          Esta comunicación quedará firmada digitalmente con tu certificado.
+        </div>
+
+        <label for="asunto">Asunto *</label>
+        <input type="text" id="asunto" placeholder="Asunto de tu mensaje">
+
+        <label for="contenido">Mensaje *</label>
+        <textarea id="contenido" placeholder="Escribe tu comunicación..."></textarea>
+
+        <label for="adjunto">Documento adjunto (opcional)</label>
+        <input type="file" id="adjunto">
+        <div class="info">Puedes adjuntar dictámenes, certificados u otros documentos relacionados.</div>
+
+        <label for="keyfile">Tu llave privada (.key) *</label>
+        <input type="file" id="keyfile" accept=".key,.pem">
+        <div class="info">La llave nunca se envía a Casa Monarca. Se usa localmente para firmar tu mensaje y verificar tu identidad.</div>
+
+        <button id="btn-enviar" onclick="enviar()">Firmar y enviar</button>
+
+        <div id="result" class="hidden"></div>
+      </div>
+
+      <div id="error-section" class="hidden">
+        <div class="alert alert-error" id="error-msg"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const externoId = params.get('id');
+
+    if (!externoId) {
+      mostrarError('Link de acceso inválido. Solicita un nuevo link a Casa Monarca.');
+    } else {
+      cargarInfoExterno();
+    }
+
+    async function cargarInfoExterno() {
+      try {
+        const r = await fetch('/api/externos/info?id=' + externoId);
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || 'No se pudo verificar tu identidad');
+
+        document.getElementById('ext-nombre').textContent = data.externo.nombre;
+        document.getElementById('ext-email').textContent = data.externo.email;
+        document.getElementById('loading').classList.add('hidden');
+        document.getElementById('form-section').classList.remove('hidden');
+      } catch (e) {
+        mostrarError(e.message);
+      }
+    }
+
+    function mostrarError(msg) {
+      document.getElementById('loading').classList.add('hidden');
+      document.getElementById('form-section').classList.add('hidden');
+      document.getElementById('error-msg').textContent = msg;
+      document.getElementById('error-section').classList.remove('hidden');
+    }
+
+    async function importarLlavePEM(pem) {
+      const cleaned = pem
+        .replace(/-----BEGIN [^-]+-----/, '')
+        .replace(/-----END [^-]+-----/, '')
+        .replace(/\s/g, '');
+      const binary = Uint8Array.from(atob(cleaned), c => c.charCodeAt(0));
+      return await window.crypto.subtle.importKey(
+        'pkcs8',
+        binary.buffer,
+        { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+        false,
+        ['sign']
+      );
+    }
+
+    async function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result;
+          const base64 = result.split(',')[1];
+          resolve(base64);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function enviar() {
+      const asunto = document.getElementById('asunto').value.trim();
+      const contenido = document.getElementById('contenido').value.trim();
+      const adjunto = document.getElementById('adjunto').files[0];
+      const keyFile = document.getElementById('keyfile').files[0];
+      const btn = document.getElementById('btn-enviar');
+      const result = document.getElementById('result');
+
+      result.classList.add('hidden');
+
+      if (!asunto)    { mostrarResultado('error', 'El asunto es requerido'); return; }
+      if (!contenido) { mostrarResultado('error', 'El mensaje es requerido'); return; }
+      if (!keyFile)   { mostrarResultado('error', 'Sube tu llave privada para firmar'); return; }
+
+      btn.disabled = true;
+      btn.textContent = 'Firmando y enviando...';
+
+      try {
+        const pemText = await keyFile.text();
+        const privateKey = await importarLlavePEM(pemText);
+
+        let adjuntoB64 = '';
+        if (adjunto) {
+          adjuntoB64 = await fileToBase64(adjunto);
+        }
+
+        const contenidoFirmable = asunto + '|' + contenido + '|' + adjuntoB64;
+        const bytes = new TextEncoder().encode(contenidoFirmable);
+        const firmaBuffer = await window.crypto.subtle.sign(
+          { name: 'RSASSA-PKCS1-v1_5' },
+          privateKey,
+          bytes
+        );
+        const firma = btoa(String.fromCharCode(...new Uint8Array(firmaBuffer)));
+
+        const fd = new FormData();
+        fd.append('externo_id', externoId);
+        fd.append('asunto', asunto);
+        fd.append('contenido', contenido);
+        fd.append('firma', firma);
+        if (adjunto) fd.append('adjunto', adjunto);
+
+        const r = await fetch('/api/externos/enviar', { method: 'POST', body: fd });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || 'Error al enviar');
+
+        mostrarResultado('success', data.mensaje);
+        document.getElementById('asunto').value = '';
+        document.getElementById('contenido').value = '';
+        document.getElementById('adjunto').value = '';
+        document.getElementById('keyfile').value = '';
+      } catch (e) {
+        mostrarResultado('error', e.message || 'Error al firmar o enviar');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Firmar y enviar';
+      }
+    }
+
+    function mostrarResultado(tipo, msg) {
+      const result = document.getElementById('result');
+      result.className = 'alert alert-' + (tipo === 'success' ? 'success' : 'error');
+      result.textContent = msg;
+      result.classList.remove('hidden');
+    }
+  </script>
+</body>
+</html>

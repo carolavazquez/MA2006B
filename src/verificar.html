@@ -1,0 +1,101 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verificador de firmas — Casa Monarca</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f4f4f4; min-height: 100vh; padding: 40px 24px; }
+    .container { max-width: 700px; margin: 0 auto; }
+    .header { text-align: center; margin-bottom: 32px; }
+    .header h1 { color: #c84c2a; margin: 0 0 4px 0; font-size: 26px; }
+    .header p { color: #666; margin: 0; font-size: 14px; }
+    .card { background: #fff; border-radius: 12px; padding: 28px; box-shadow: 0 2px 12px rgba(0,0,0,.06); }
+    .tabs { display: flex; gap: 4px; margin-bottom: 24px; border-bottom: 1px solid #eee; }
+    .tab { padding: 10px 16px; cursor: pointer; font-size: 14px; color: #666; border-bottom: 2px solid transparent; }
+    .tab.active { color: #c84c2a; border-bottom-color: #c84c2a; font-weight: 600; }
+    label { display: block; font-size: 13px; color: #444; margin-bottom: 6px; font-weight: 500; }
+    input, select { width: 100%; padding: 11px 14px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; margin-bottom: 16px; }
+    button { background: #c84c2a; color: #fff; border: 0; padding: 12px 24px; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    .pane { display: none; }
+    .pane.active { display: block; }
+    .result { margin-top: 20px; padding: 16px; border-radius: 8px; }
+    .result-valido    { background: #efe; border: 1px solid #cfc; color: #060; }
+    .result-invalido  { background: #fee; border: 1px solid #fcc; color: #c00; }
+    .result-sin_firma { background: #fffbea; border: 1px solid #ffe0a8; color: #946200; }
+    .hidden { display: none; }
+    .detalles { margin-top: 12px; font-size: 13px; opacity: .9; }
+    .detalles div { padding: 4px 0; }
+    .footer { text-align: center; margin-top: 24px; color: #888; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Verificador de firmas digitales</h1>
+      <p>Casa Monarca — Verificación pública de autenticidad</p>
+    </div>
+
+    <div class="card">
+      <p style="margin-top:0;font-size:14px;color:#666;line-height:1.6">
+        Si recibiste un correo de Casa Monarca y quieres confirmar que es legítimo y no fue alterado, exporta el correo como archivo <code>.eml</code> desde tu cliente de correo (en Gmail: menú · → <strong>"Descargar mensaje"</strong>) y súbelo aquí. El sistema verificará criptográficamente la firma del correo.
+      </p>
+
+      <label for="eml-file" style="margin-top:16px">Archivo .eml</label>
+      <input type="file" id="eml-file" accept=".eml,message/rfc822">
+      <button onclick="verificarSmime()">Verificar correo</button>
+      <div id="smime-result" class="result hidden"></div>
+    </div>
+
+    <div class="footer">
+      Sistema institucional de Casa Monarca · Verificación criptográfica
+    </div>
+  </div>
+
+  <script>
+    
+
+    function mostrarResultado(elId, data) {
+      const el = document.getElementById(elId);
+      el.className = 'result result-' + (data.status || 'invalido');
+      let html = '<strong>' + (data.mensaje || 'Verificación completada') + '</strong>';
+      if (data.detalles) {
+        html += '<div class="detalles">';
+        for (const k in data.detalles) {
+          if (data.detalles[k]) html += '<div><strong>' + k + ':</strong> ' + data.detalles[k] + '</div>';
+        }
+        html += '</div>';
+      }
+      el.innerHTML = html;
+      el.classList.remove('hidden');
+    }
+
+    async function verificarSmime() {
+      const file = document.getElementById('eml-file').files[0];
+      const result = document.getElementById('smime-result');
+      result.classList.add('hidden');
+
+      if (!file) {
+        mostrarResultado('smime-result', { status: 'invalido', mensaje: 'Selecciona un archivo .eml' });
+        return;
+      }
+
+      const fd = new FormData();
+      fd.append('eml', file);
+
+      try {
+        const r = await fetch('/api/verificacion/smime', { method: 'POST', body: fd });
+        const data = await r.json();
+        mostrarResultado('smime-result', data);
+      } catch (e) {
+        mostrarResultado('smime-result', { status: 'invalido', mensaje: 'Error al verificar: ' + e.message });
+      }
+    }
+
+    
+  </script>
+</body>
+</html>

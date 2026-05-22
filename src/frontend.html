@@ -432,13 +432,24 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
       </div>
       <div class="form-group">
         <label class="form-label">Nivel *</label>
-        <select class="form-select" id="mn-nivel">
+        <select class="form-select" id="mn-nivel" onchange="toggleSoloComunicacion()">
           <option value="">Seleccionar…</option>
           <option value="2">2 — Coordinador</option>
           <option value="3">3 — Operativo</option>
           <option value="4">4 — Externo</option>
         </select>
       </div>
+
+      <div class="form-group" id="mn-solo-comm-wrap" style="grid-column:1/-1;display:none">
+        <label style="font-size:13px;display:flex;align-items:center;gap:6px">
+          <input type="checkbox" id="mn-solo-comunicacion">
+          <span>Solo para comunicaciones externas (sin acceso a la plataforma)</span>
+        </label>
+        <div class="text-xs muted mt-8">
+          El usuario recibirá únicamente su link personal para enviar comunicaciones firmadas. No tendrá credenciales de login.
+        </div>
+      </div>
+
     </div>
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px">
       <button class="btn btn-ghost" onclick="closeModal('modal-new')">Cancelar</button>
@@ -722,6 +733,7 @@ function buildSidebar() {
       { id: 'certs',   icon: iKey,   label: 'Certificados' },
       { id: 'docs',    icon: iList,  label: 'Documentos' },
       { id: 'audit',   icon: iList,  label: 'Auditoría' },
+      { id: 'comext',  icon: iBell,  label: 'Comunicaciones externas' },
     ]});
 
     if (SESSION.es_espejo) {
@@ -785,6 +797,7 @@ function navigateTo(page) {
     recuperacion: renderRecuperacion,
     anuncios:   renderAnuncios,
     mensajes:    renderMensajes,
+    comext:     renderComExt,
   };
   if (pages[page]) pages[page]();
 }
@@ -1206,7 +1219,7 @@ async function renderAnuncios() {
     <div class="page-body">
       ${puedePublicar ? `
         <div style="margin-bottom:16px;text-align:right">
-          <button class="btn btn-primary" onclick="openModal('modal-nuevo-anuncio')">+ Nuevo anuncio</button>
+          <button class="btn btn-primary" onclick="openModal('modal-nuevo-anuncio');configurarModalAnuncio()">+ Nuevo anuncio</button>
         </div>
       ` : ''}
       <div id="anuncios-wrap">
@@ -1231,9 +1244,7 @@ async function renderAnuncios() {
         <div class="form-group mt-12">
           <label class="form-label">Alcance *</label>
           <select id="nanuncio-alcance" class="form-select" onchange="toggleAlcanceCampos()">
-            <option value="todos">Todos los colaboradores</option>
-            <option value="area">Por área</option>
-            <option value="nivel">Por nivel</option>
+            <!-- Las opciones se llenan dinámicamente según el nivel del usuario -->
           </select>
         </div>
 
@@ -1279,11 +1290,29 @@ async function renderAnuncios() {
   cargarAnuncios();
 }
 
-
+function configurarModalAnuncio() {
+  const select = document.getElementById('nanuncio-alcance');
+  
+  if (parseInt(SESSION.nivel) === 1) {
+    select.innerHTML = `
+      <option value="todos">Todos los colaboradores</option>
+      <option value="area">Por área</option>
+      <option value="nivel">Por nivel</option>
+    `;
+  } else if (parseInt(SESSION.nivel) === 2) {
+    select.innerHTML = `
+      <option value="area">Mi área (${esc(SESSION.area)})</option>
+    `;
+  }
+  
+  toggleAlcanceCampos();
+}
 
 function toggleAlcanceCampos() {
   const alcance = document.getElementById('nanuncio-alcance').value;
-  document.getElementById('nanuncio-area-wrap').classList.toggle('hidden', alcance !== 'area');
+  const esCoordinador = parseInt(SESSION.nivel) === 2;
+  
+  document.getElementById('nanuncio-area-wrap').classList.toggle('hidden', alcance !== 'area' || esCoordinador);
   document.getElementById('nanuncio-nivel-wrap').classList.toggle('hidden', alcance !== 'nivel');
 }
 
@@ -1488,6 +1517,17 @@ async function renderMensajes() {
             <textarea id="nmsg-contenido" class="form-input" rows="5" style="height:auto;padding:10px" placeholder="Escribe tu mensaje..."></textarea>
           </div>
 
+          <div class="form-group mt-12">
+            <label class="form-label">
+              <input type="checkbox" id="nmsg-firmar" onchange="toggleFirmaMensaje()" style="margin-right:6px">
+              Firmar digitalmente
+            </label>
+            <div id="nmsg-firma-wrap" class="hidden mt-8">
+              <input id="nmsg-keyfile" class="form-input" type="file" accept=".key,.pem" style="padding:6px 12px;height:auto">
+              <div class="text-xs muted mt-8">Opcional: la firma certifica autoría. La llave no se envía al servidor.</div>
+            </div>
+          </div>
+
           <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px">
             <button class="btn btn-ghost" onclick="closeModal('modal-nuevo-mensaje')">Cancelar</button>
             <button class="btn btn-primary" id="btn-nuevo-mensaje" onclick="guardarNuevoMensaje()">Enviar</button>
@@ -1627,6 +1667,179 @@ async function enviarRespuesta(hiloId) {
     showErr(errEl, e.message);
   } finally {
     setLoading(btn, false, 'Enviar respuesta');
+  }
+}
+
+/* ════════════════════════════════════════
+   PAGE: COMUNICACIONES EXTERNAS
+════════════════════════════════════════ */
+
+async function renderComExt() {
+  const main = document.getElementById('main');
+  main.innerHTML = `
+    <div class="page-head">
+      <h1>Comunicaciones externas</h1>
+      <p>Mensajes firmados recibidos de colaboradores externos</p>
+    </div>
+    <div class="page-body">
+      <div id="comext-wrap">
+        <div style="padding:30px;text-align:center"><span class="spin spin-dark"></span></div>
+      </div>
+    </div>`;
+
+  cargarComExt();
+}
+
+async function cargarComExt() {
+  const wrap = document.getElementById('comext-wrap');
+  try {
+    const r = await API.get('/api/externos/listar');
+    const coms = r.comunicaciones || [];
+
+    if (!coms.length) {
+      wrap.innerHTML = `<div class="card" style="text-align:center;padding:40px;color:var(--muted)">No hay comunicaciones externas todavía.</div>`;
+      return;
+    }
+
+    wrap.innerHTML = `
+      <div class="card" style="padding:0;overflow:hidden">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Remitente</th>
+              <th>Asunto</th>
+              <th>Firma</th>
+              <th>Estado</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${coms.map(c => {
+              const estadoColor = c.estado === 'pendiente' ? 'amber' : c.estado === 'revisada' ? 'green' : 'gray';
+              return `
+                <tr>
+                  <td class="mono muted">${esc(c.creado_en)}</td>
+                  <td>
+                    <div style="font-weight:500">${esc(c.externo_nombre)}</div>
+                    <div class="text-xs muted">${esc(c.externo_email)}</div>
+                  </td>
+                  <td>${esc(c.asunto)}</td>
+                  <td>${c.firma_verificada ? '<span class="badge badge-green">✓ Verificada</span>' : '<span class="badge badge-red">✗ Inválida</span>'}</td>
+                  <td><span class="badge badge-${estadoColor}">${c.estado}</span></td>
+                  <td>
+                    <button class="btn btn-ghost btn-sm" onclick="verComExt('${c.id}')">Ver</button>
+                  </td>
+                </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  } catch (e) {
+    wrap.innerHTML = `<div class="alert alert-danger">${esc(e.message)}</div>`;
+  }
+}
+
+async function verComExt(id) {
+  const main = document.getElementById('main');
+  main.innerHTML = `
+    <div class="page-head">
+      <button class="btn btn-ghost btn-sm" onclick="navigateTo('comext')">← Volver</button>
+      <h1 style="margin-top:8px">Comunicación externa</h1>
+    </div>
+    <div class="page-body" style="max-width:780px">
+      <div id="comext-detalle">
+        <div style="padding:30px;text-align:center"><span class="spin spin-dark"></span></div>
+      </div>
+    </div>`;
+
+  try {
+    const r = await API.get('/api/externos/ver?id=' + id);
+    const c = r.comunicacion;
+    const cont = document.getElementById('comext-detalle');
+
+    const adjuntoHtml = c.adjunto_nombre ? `
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-title" style="margin-bottom:8px">Documento adjunto</div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-weight:500">${esc(c.adjunto_nombre)}</div>
+            <div class="text-xs muted">${esc(c.adjunto_tipo)}</div>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="descargarAdjuntoComExt('${id}')">Descargar</button>
+        </div>
+      </div>
+    ` : '';
+
+    cont.innerHTML = `
+      <div class="card" style="margin-bottom:16px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+          <div>
+            <div class="muted text-xs">Remitente</div>
+            <div style="font-weight:500">${esc(c.externo_nombre)}</div>
+            <div class="text-xs muted">${esc(c.externo_email)}</div>
+          </div>
+          <div>
+            <div class="muted text-xs">Recibido</div>
+            <div>${esc(c.creado_en)}</div>
+          </div>
+        </div>
+        <div style="background:var(--bg);padding:10px 12px;border-radius:6px;display:flex;align-items:center;gap:8px;font-size:13px">
+          <span style="color:var(--success);font-weight:600">✓</span>
+          <span>Firma digital verificada criptográficamente contra el certificado del externo</span>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-title" style="margin-bottom:8px">Asunto</div>
+        <div style="font-size:15px;font-weight:500;margin-bottom:16px">${esc(c.asunto)}</div>
+        <div class="card-title" style="margin-bottom:8px">Contenido</div>
+        <div style="white-space:pre-wrap;line-height:1.5">${esc(c.contenido)}</div>
+      </div>
+
+      ${adjuntoHtml}
+
+      <div class="card">
+        <div class="card-title" style="margin-bottom:12px">Estado de revisión</div>
+        <div style="display:flex;gap:8px">
+          <button class="btn ${c.estado === 'pendiente' ? 'btn-primary' : 'btn-ghost'}" onclick="cambiarEstadoComExt('${id}', 'pendiente')">Pendiente</button>
+          <button class="btn ${c.estado === 'revisada' ? 'btn-primary' : 'btn-ghost'}" onclick="cambiarEstadoComExt('${id}', 'revisada')">Revisada</button>
+          <button class="btn ${c.estado === 'archivada' ? 'btn-primary' : 'btn-ghost'}" onclick="cambiarEstadoComExt('${id}', 'archivada')">Archivada</button>
+        </div>
+      </div>`;
+  } catch (e) {
+    document.getElementById('comext-detalle').innerHTML = `<div class="alert alert-danger">${esc(e.message)}</div>`;
+  }
+}
+
+async function cambiarEstadoComExt(id, estado) {
+  try {
+    await API.post('/api/externos/actualizar-estado', { id, estado });
+    toast('Estado actualizado');
+    verComExt(id);
+  } catch (e) {
+    alert('Error: ' + e.message);
+  }
+}
+
+async function descargarAdjuntoComExt(id) {
+  try {
+    const r = await API.get('/api/externos/ver?id=' + id);
+    const c = r.comunicacion;
+    if (!c.adjunto_contenido) return alert('Este mensaje no tiene adjunto');
+
+    const binary = atob(c.adjunto_contenido);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const blob = new Blob([bytes], { type: c.adjunto_tipo || 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = c.adjunto_nombre;
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    alert('Error al descargar: ' + e.message);
   }
 }
 
@@ -2821,6 +3034,7 @@ async function saveNewUser() {
   const email = document.getElementById('mn-email').value.trim();
   const area  = document.getElementById('mn-area').value;
   const nivel = parseInt(document.getElementById('mn-nivel').value);
+  const soloComunicacion = document.getElementById('mn-solo-comunicacion').checked ? 1 : 0;
   const errEl = document.getElementById('mnew-err');
   const btn   = document.getElementById('btn-save-new');
   errEl.classList.add('hidden');
@@ -2832,16 +3046,34 @@ async function saveNewUser() {
   setLoading(btn, true);
   try {
     await API.post('/api/usuarios/crear', {
-      nombre: first + ' ' + last, email, nivel, area
+      nombre: first + ' ' + last, email, nivel, area,
+      solo_comunicacion: soloComunicacion
     });
-    toast('Colaborador creado. Se enviarán credenciales por correo.');
+    toast(soloComunicacion 
+      ? 'Externo creado. Al activarlo recibirá su link de comunicación por correo.'
+      : 'Colaborador creado. Se enviarán credenciales por correo al activarlo.');
     closeModal('modal-new');
     ['mn-first','mn-last','mn-email'].forEach(id => document.getElementById(id).value = '');
     document.getElementById('mn-area').value = '';
     document.getElementById('mn-nivel').value = '';
+    document.getElementById('mn-solo-comunicacion').checked = false;
+    document.getElementById('mn-solo-comm-wrap').style.display = 'none';
     renderUsers();
   } catch(e) { showErr(errEl, e.message); }
   finally { setLoading(btn, false, 'Crear usuario'); }
+}
+
+function toggleSoloComunicacion() {
+  const nivel = parseInt(document.getElementById('mn-nivel').value);
+  const wrap = document.getElementById('mn-solo-comm-wrap');
+  const checkbox = document.getElementById('mn-solo-comunicacion');
+  
+  if (nivel === 4) {
+    wrap.style.display = 'block';
+  } else {
+    wrap.style.display = 'none';
+    checkbox.checked = false;
+  }
 }
 
 /* ════════════════════════════════════════

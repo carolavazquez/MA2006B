@@ -160,6 +160,47 @@ switch ($resource) {
         }
         break;
 
+    case 'verificacion':
+        require_once __DIR__ . '/../controllers/VerificacionPublicaController.php';
+        $controller = new VerificacionPublicaController();
+        switch ($action) {
+            case 'smime':
+                echo json_encode($controller->verificarSmime());
+                break;
+            case 'contenido':
+                echo json_encode($controller->verificarContenido());
+                break;
+            default:
+                http_response_code(404);
+                echo json_encode(['error' => 'Acción no encontrada']);
+        }
+        break;
+
+    case 'externos':
+        require_once __DIR__ . '/../controllers/ComunicacionesExternasController.php';
+        $controller = new ComunicacionesExternasController();
+        switch ($action) {
+            case 'enviar':
+                echo json_encode($controller->enviar());
+                break;
+            case 'info':
+                echo json_encode($controller->infoExterno());
+                break;
+            case 'listar':
+                echo json_encode($controller->listar());
+                break;
+            case 'ver':
+                echo json_encode($controller->ver());
+                break;
+            case 'actualizar-estado':
+                echo json_encode($controller->actualizarEstado());
+                break;
+            default:
+                http_response_code(404);
+                echo json_encode(['error' => 'Acción no encontrada']);
+        }
+        break;
+
 
     default:
         http_response_code(404);
