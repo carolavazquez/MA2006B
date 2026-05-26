@@ -48,8 +48,11 @@
         <textarea id="contenido" placeholder="Escribe tu comunicación..."></textarea>
 
         <label for="adjunto">Documento adjunto (opcional)</label>
-        <input type="file" id="adjunto">
-        <div class="info">Puedes adjuntar dictámenes, certificados u otros documentos relacionados.</div>
+        <input type="file" id="adjunto" accept=".pdf,.jpg,.jpeg,.png,.docx,.xlsx,.pptx,.txt">
+        <div class="info">
+        Tipos permitidos: PDF, JPG, PNG, DOCX, XLSX, PPTX, TXT. Tamaño máximo: 10 MB.
+        El archivo se verifica criptográficamente al enviar.
+        </div>
 
         <label for="keyfile">Tu llave privada (.key) *</label>
         <input type="file" id="keyfile" accept=".key,.pem">

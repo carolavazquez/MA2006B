@@ -223,7 +223,44 @@ class Templates {
         </p>';
         return self::layout('Canal de comunicación', $cuerpo);
     }
-    
+
+    public static function alertaIntegridadAdjuntos($nombre, $discrepancias) {
+        $appUrl = env('APP_URL', 'http://localhost:8080');
+        $detalle = '';
+        foreach ($discrepancias as $d) {
+            $detalle .= '<tr>'
+                . '<td style="padding:6px 12px;font-size:12px">' . htmlspecialchars($d['archivo']) . '</td>'
+                . '<td style="padding:6px 12px;font-size:11px;color:#666">' . htmlspecialchars($d['comunicacion_id']) . '</td>'
+                . '<td style="padding:6px 12px;font-size:12px">' . htmlspecialchars($d['recibido_en']) . '</td>'
+                . '</tr>';
+        }
+
+        $cuerpo = '
+            <h2 style="margin-top:0;color:#c00">⚠ Alerta de integridad de adjuntos</h2>
+            <p>Hola ' . htmlspecialchars($nombre) . ',</p>
+            <p>La verificación diaria de integridad detectó que <strong>' . count($discrepancias) . '</strong> adjunto(s) almacenado(s) en el sistema no coinciden con su hash original. Esto puede indicar:</p>
+            <ul>
+                <li>Modificación no autorizada de la base de datos</li>
+                <li>Corrupción del almacenamiento</li>
+                <li>Falla en el proceso de persistencia</li>
+            </ul>
+            <table style="background:#f9f9f9;padding:12px;border-radius:6px;margin:16px 0;width:100%;border-collapse:collapse">
+                <thead>
+                    <tr style="background:#eee">
+                        <th style="padding:8px 12px;text-align:left;font-size:12px">Archivo</th>
+                        <th style="padding:8px 12px;text-align:left;font-size:12px">ID</th>
+                        <th style="padding:8px 12px;text-align:left;font-size:12px">Recibido</th>
+                    </tr>
+                </thead>
+                <tbody>' . $detalle . '</tbody>
+            </table>
+            <p>Cada discrepancia quedó registrada en la bitácora con la acción <code>INTEGRIDAD_ADJUNTO_COMPROMETIDA</code>.</p>
+            <p style="margin-top:24px">
+                <a href="' . htmlspecialchars($appUrl) . '/frontend.html" style="background:#c84c2a;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block">Revisar en el sistema</a>
+            </p>';
+        return self::layout('Alerta de integridad', $cuerpo);
+    }
+        
 }
 
 

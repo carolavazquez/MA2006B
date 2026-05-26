@@ -3,6 +3,7 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../middleware/rbac.php';
 require_once __DIR__ . '/../config/mail.php';
 require_once __DIR__ . '/../config/templates.php';
+require_once __DIR__ . '/../middleware/validacion_archivos.php';
 
 class ComunicacionesExternasController {
 
@@ -38,12 +39,20 @@ class ComunicacionesExternasController {
         $adjunto_nombre = null;
         $adjunto_tipo = null;
         $adjunto_contenido = null;
+        $adjunto_hash = null;
         $firmable_adjunto = '';
 
         if (isset($_FILES['adjunto']) && $_FILES['adjunto']['error'] === UPLOAD_ERR_OK) {
+            $validacion = ValidacionArchivos::validar($_FILES['adjunto']);
+            if (!$validacion['ok']) {
+                ValidacionArchivos::registrarRechazo($externo_id, $_FILES['adjunto'], $validacion['error']);
+                return $this->error(400, $validacion['error']);
+            }
+
             $adjunto_nombre = $_FILES['adjunto']['name'];
-            $adjunto_tipo   = $_FILES['adjunto']['type'];
+            $adjunto_tipo = $validacion['mime'];
             $adjunto_contenido = base64_encode(file_get_contents($_FILES['adjunto']['tmp_name']));
+            $adjunto_hash = $validacion['hash'];
             $firmable_adjunto = $adjunto_contenido;
         }
 
@@ -56,12 +65,14 @@ class ComunicacionesExternasController {
             return $this->error(401, 'La firma digital no es válida. El mensaje no fue aceptado.');
         }
 
+
         $id = $this->uuid();
         $this->db->prepare("
-            INSERT INTO comunicaciones_externas 
-            (id, externo_id, asunto, contenido, firma_digital, adjunto_nombre, adjunto_tipo, adjunto_contenido, firma_verificada)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
-        ")->execute([$id, $externo_id, $asunto, $contenido, $firma, $adjunto_nombre, $adjunto_tipo, $adjunto_contenido]);
+        INSERT INTO comunicaciones_externas 
+        (id, externo_id, asunto, contenido, firma_digital, adjunto_nombre, adjunto_tipo, adjunto_contenido, adjunto_hash, firma_verificada)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+        ")->execute([$id, $externo_id, $asunto, $contenido, $firma, $adjunto_nombre, $adjunto_tipo, $adjunto_contenido, $adjunto_hash]);
+
 
         $stmt = $this->db->query("SELECT email, nombre FROM usuarios WHERE nivel = 1 AND activo = 1 AND es_espejo = 0");
         foreach ($stmt->fetchAll() as $admin) {

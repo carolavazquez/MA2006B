@@ -16,3 +16,4 @@ composer.lock
 echo ".env" >> .gitignore.env
 .env
 .env
+src/cron/*.log

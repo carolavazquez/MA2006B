@@ -1761,13 +1761,18 @@ async function verComExt(id) {
     const adjuntoHtml = c.adjunto_nombre ? `
       <div class="card" style="margin-bottom:16px">
         <div class="card-title" style="margin-bottom:8px">Documento adjunto</div>
-        <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
           <div>
             <div style="font-weight:500">${esc(c.adjunto_nombre)}</div>
             <div class="text-xs muted">${esc(c.adjunto_tipo)}</div>
           </div>
           <button class="btn btn-primary btn-sm" onclick="descargarAdjuntoComExt('${id}')">Descargar</button>
         </div>
+        ${c.adjunto_hash ? `
+          <div style="background:var(--bg);padding:8px 10px;border-radius:6px;font-size:11px;font-family:monospace;word-break:break-all;color:var(--muted)">
+            <strong>SHA-256:</strong> ${esc(c.adjunto_hash)}
+          </div>
+        ` : ''}
       </div>
     ` : '';
 
