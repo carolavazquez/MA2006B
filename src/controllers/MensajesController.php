@@ -15,7 +15,7 @@ class MensajesController {
 
     public function iniciarHilo()
     {
-        $payload = verificarAcceso(4, null, 'w');
+        $payload = verificarAcceso(4, null, 'r');
 
         $body = json_decode(file_get_contents('php://input'), true);
         $destinatario_id = $body['destinatario_id'] ?? '';

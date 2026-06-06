@@ -303,7 +303,6 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
             <select class="form-select" id="r-area">
               <option value="">Seleccionar…</option>
               <option>Humanitaria</option><option>PsicoSocial</option><option>Legal</option>
-              <option>Comunicación</option><option>Almacén</option><option>Tecnologías de Información</option>
             </select>
           </div>
           <div class="form-group">
@@ -360,7 +359,6 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
         <label class="form-label">Área</label>
         <select class="form-select" id="medit-area">
           <option>Humanitaria</option><option>PsicoSocial</option><option>Legal</option>
-          <option>Comunicación</option><option>Almacén</option><option>Tecnologías de Información</option>
         </select>
       </div>
       <div class="form-group">
@@ -383,10 +381,10 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
         Permisos individuales
       </div>
       <div class="perm-row" id="perm-toggles">
-        <span class="perm-toggle" data-perm="r" onclick="togglePerm(this)">r — Leer</span>
-        <span class="perm-toggle" data-perm="w" onclick="togglePerm(this)">w — Escribir</span>
-        <span class="perm-toggle" data-perm="x" onclick="togglePerm(this)">x — Autorizar</span>
-        <span class="perm-toggle" data-perm="e" onclick="togglePerm(this)">e — Admin</span>
+        <span class="perm-toggle perm-on" data-perm="r" onclick="togglePerm(this)" title="Leer" style="font-size:18px">📖</span>
+        <span class="perm-toggle perm-on" data-perm="w" onclick="togglePerm(this)" title="Escribir" style="font-size:18px">✏️</span>
+        <span class="perm-toggle perm-on" data-perm="x" onclick="togglePerm(this)" title="Autorizar" style="font-size:18px">🔓</span>
+        <span class="perm-toggle perm-off" data-perm="e" onclick="togglePerm(this)" title="Admin" style="font-size:18px">👤</span>
       </div>
       <div style="font-size:11px;color:var(--hint);margin-top:6px">
         Estos permisos sobrescriben los del nivel base solo cuando se desvían de él.
@@ -427,7 +425,6 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
         <select class="form-select" id="mn-area">
           <option value="">Seleccionar…</option>
           <option>Humanitaria</option><option>PsicoSocial</option><option>Legal</option>
-          <option>Comunicación</option><option>Almacén</option><option>Tecnologías de Información</option>
         </select>
       </div>
       <div class="form-group">
@@ -462,7 +459,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 /* ════════════════════════════════════════
    CONFIG — change BASE_URL to match your docker host
 ════════════════════════════════════════ */
-const BASE_URL = 'http://localhost:8080';
+const BASE_URL = window.location.origin;
 
 /* ════════════════════════════════════════
    API HELPER
@@ -712,9 +709,6 @@ if (SESSION.es_espejo) {
   navigateTo(SESSION.nivel === 1 ? 'dashboard' : 'home');
 }
 
-/* ════════════════════════════════════════
-   SIDEBAR
-════════════════════════════════════════ */
 function buildSidebar() {
   const nav = document.getElementById('sb-nav');
   const n = SESSION.nivel;
@@ -734,6 +728,8 @@ function buildSidebar() {
       { id: 'docs',    icon: iList,  label: 'Documentos' },
       { id: 'audit',   icon: iList,  label: 'Auditoría' },
       { id: 'comext',  icon: iBell,  label: 'Comunicaciones externas' },
+      { id: 'correos', icon: iBell, label: 'Correos institucionales' },
+
     ]});
 
     if (SESSION.es_espejo) {
@@ -744,8 +740,9 @@ function buildSidebar() {
   }
   if (n === 2) {
     sections.push({ label: 'Mi área', items: [
-      { id: 'users', icon: iUsers, label: 'Colaboradores del área' },
       { id: 'docs',  icon: iList,  label: 'Documentos' },
+      { id: 'correos', icon: iBell, label: 'Correos institucionales' },
+
     ]});
   }
   if (n === 3) {
@@ -764,7 +761,7 @@ function buildSidebar() {
     { id: 'mensajes', icon: iList, label: 'Mensajes' },
   ]});
 
-  nav.innerHTML = sections.map(s => `
+  const navHtml = sections.map(s => `
     <div class="nav-sec">${s.label}</div>
     ${s.items.map(item => `
       <div class="nav-item" id="nav-${item.id}" onclick="navigateTo('${item.id}')">
@@ -772,6 +769,15 @@ function buildSidebar() {
         ${item.notif ? `<span class="badge badge-amber" id="notif-badge" style="display:none">0</span>` : ''}
       </div>`).join('')}
   `).join('');
+
+  const terminosHtml = `
+    <div style="margin-top:24px;padding:12px 16px;border-top:1px solid var(--border);text-align:center">
+      <a href="terminos.html" target="_blank" rel="noopener" style="font-size:11px;color:var(--muted);text-decoration:none">
+        Términos y Condiciones
+      </a>
+    </div>`;
+
+  nav.innerHTML = navHtml + terminosHtml;
 }
 
 /* ════════════════════════════════════════
@@ -798,6 +804,7 @@ function navigateTo(page) {
     anuncios:   renderAnuncios,
     mensajes:    renderMensajes,
     comext:     renderComExt,
+    correos:    renderCorreos,
   };
   if (pages[page]) pages[page]();
 }
@@ -895,7 +902,11 @@ function renderHome() {
           <div class="card-sub" style="margin-bottom:16px">${esc(SESSION.area)} · <span class="badge ${ROLES[SESSION.nivel]?.badge}">${ROLES[SESSION.nivel]?.label}</span></div>
           <div style="font-size:13px;color:var(--muted);margin-bottom:8px">Permisos activos:</div>
           <div class="perm-row">
-            ${['r','w','x','e'].map(p => `<span class="perm-toggle ${perms.includes(p)?'perm-on':'perm-off'}">${p === 'r' ? 'r — Leer' : p === 'w' ? 'w — Escribir' : p === 'x' ? 'x — Autorizar' : 'e — Admin'}</span>`).join('')}
+            ${['r','w','x','e'].map(p => {
+              const emoji = p === 'r' ? '📖' : p === 'w' ? '✏️' : p === 'x' ? '🔓' : '👤';
+              const label = p === 'r' ? 'Leer' : p === 'w' ? 'Escribir' : p === 'x' ? 'Autorizar' : 'Admin';
+              return `<span class="perm-toggle ${perms.includes(p)?'perm-on':'perm-off'}" title="${label}" style="font-size:18px">${emoji}</span>`;
+            }).join('')}
           </div>
         </div>
         <div class="card">
@@ -1095,9 +1106,11 @@ function renderUsersTable(users) {
             <td><span class="badge ${role.badge}">${lvl} — ${role.label}</span></td>
             <td>
               <div class="perm-row">
-                ${['r','w','x','e'].map(p =>
-                  `<span class="perm-toggle ${perms.includes(p)?'perm-on':'perm-off'}" style="cursor:default;font-size:10px">${p}</span>`
-                ).join('')}
+                ${['r','w','x','e'].map(p => {
+                  const emoji = p === 'r' ? '📖' : p === 'w' ? '✏️' : p === 'x' ? '🔓' : '👤';
+                  const label = p === 'r' ? 'Leer' : p === 'w' ? 'Escribir' : p === 'x' ? 'Autorizar' : 'Admin';
+                  return `<span class="perm-toggle ${perms.includes(p)?'perm-on':'perm-off'}" style="cursor:default;font-size:16px" title="${label}">${emoji}</span>`;
+                }).join('')}
               </div>
             </td>
             <td>
@@ -1849,6 +1862,276 @@ async function descargarAdjuntoComExt(id) {
 }
 
 /* ════════════════════════════════════════
+   PAGE: CORREOS EXTERNOS
+════════════════════════════════════════ */
+
+async function renderCorreos() {
+  const main = document.getElementById('main');
+  main.innerHTML = `
+    <div class="page-head">
+      <h1>Correos institucionales</h1>
+      <p>Envío de correos firmados con S/MIME a colaboradores externos</p>
+    </div>
+    <div class="page-body">
+      <div style="margin-bottom:16px;text-align:right">
+        <button class="btn btn-primary" onclick="abrirModalNuevoCorreo()">+ Nuevo correo</button>
+      </div>
+      <div id="correos-wrap">
+        <div style="padding:30px;text-align:center"><span class="spin spin-dark"></span></div>
+      </div>
+    </div>
+
+    <div id="modal-nuevo-correo" class="modal-bd hidden">
+      <div class="modal" style="max-width:600px">
+        <div class="modal-head">
+          <div class="modal-title">Nuevo correo institucional</div>
+          <button class="modal-close" onclick="closeModal('modal-nuevo-correo')">×</button>
+        </div>
+        <div id="ncorreo-err" class="alert alert-danger hidden mt-8"></div>
+
+        <div class="form-group mt-12">
+          <label class="form-label">Destinatario externo *</label>
+          <select id="ncorreo-destinatario" class="form-select">
+            <option value="">Cargando...</option>
+          </select>
+        </div>
+
+        <div class="form-group mt-12">
+          <label class="form-label">Asunto *</label>
+          <input id="ncorreo-asunto" class="form-input" placeholder="Asunto del correo">
+        </div>
+
+        <div class="form-group mt-12">
+          <label class="form-label">Contenido *</label>
+          <textarea id="ncorreo-contenido" class="form-input" rows="8" style="height:auto;padding:10px" placeholder="Escribe el correo..."></textarea>
+        </div>
+
+        <div class="form-group mt-12">
+          <label class="form-label">Adjuntos (opcional)</label>
+          <input id="ncorreo-adjuntos" class="form-input" type="file" multiple
+                accept=".pdf,.jpg,.jpeg,.png,.docx,.xlsx,.pptx,.txt"
+                style="padding:6px 12px;height:auto">
+          <div class="text-xs muted mt-8">
+            Tipos permitidos: PDF, JPG, PNG, DOCX, XLSX, PPTX, TXT. Máximo 10 MB por archivo. Los adjuntos quedan cubiertos por la firma S/MIME.
+          </div>
+        </div>
+
+        <div style="background:var(--bg);padding:10px 12px;border-radius:6px;font-size:12px;color:var(--muted);margin-top:12px">
+          ℹ El correo se firmará automáticamente con S/MIME usando el certificado institucional del sistema antes de enviarse.
+        </div>
+
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px">
+          <button class="btn btn-ghost" onclick="closeModal('modal-nuevo-correo')">Cancelar</button>
+          <button class="btn btn-primary" id="btn-enviar-correo" onclick="enviarCorreo()">Enviar correo firmado</button>
+        </div>
+      </div>
+    </div>
+    </div>`;
+
+  cargarCorreos();
+}
+
+async function cargarCorreos() {
+  const wrap = document.getElementById('correos-wrap');
+  try {
+    const r = await API.get('/api/correos/listar');
+    const correos = r.correos || [];
+
+    if (!correos.length) {
+      wrap.innerHTML = `<div class="card" style="text-align:center;padding:40px;color:var(--muted)">No has enviado correos todavía.</div>`;
+      return;
+    }
+
+    wrap.innerHTML = `
+      <div class="card" style="padding:0;overflow:hidden">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Destinatario</th>
+              <th>Asunto</th>
+              <th>Emisor</th>
+              <th>Adjuntos</th>
+              <th>Firma</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${correos.map(c => `
+              <tr>
+                <td class="mono muted">${esc(c.enviado_en)}</td>
+                <td>
+                  <div>${esc(c.destinatario_nombre)}</div>
+                  <div class="text-xs muted">${esc(c.destinatario_email)}</div>
+                </td>
+                <td>${esc(c.asunto)}</td>
+                <td>${esc(c.emisor_nombre)}</td>
+                <td>${c.tiene_adjuntos ? '<span class="badge badge-blue">📎</span>' : '—'}</td>
+                <td><span class="badge badge-green">✓ S/MIME</span></td>
+                <td><button class="btn btn-ghost btn-sm" onclick="verCorreo('${c.id}')">Ver</button></td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  } catch (e) {
+    wrap.innerHTML = `<div class="alert alert-danger">${esc(e.message)}</div>`;
+  }
+}
+
+async function abrirModalNuevoCorreo() {
+  document.getElementById('ncorreo-asunto').value = '';
+  document.getElementById('ncorreo-contenido').value = '';
+  document.getElementById('ncorreo-err').classList.add('hidden');
+
+  const select = document.getElementById('ncorreo-destinatario');
+  select.innerHTML = '<option value="">Cargando...</option>';
+
+  openModal('modal-nuevo-correo');
+
+  try {
+    const r = await API.get('/api/correos/destinatarios');
+    const externos = r.destinatarios || [];
+
+    if (!externos.length) {
+      select.innerHTML = '<option value="">No hay externos registrados</option>';
+      return;
+    }
+
+    select.innerHTML = '<option value="">Selecciona...</option>' +
+      externos.map(e => 
+        `<option value="${e.id}">${esc(e.nombre)} — ${esc(e.email)}${e.matricula ? ' · ' + esc(e.matricula) : ''}</option>`
+      ).join('');
+  } catch (e) {
+    select.innerHTML = `<option value="">Error: ${esc(e.message)}</option>`;
+  }
+}
+
+async function enviarCorreo() {
+  const destinatario_id = document.getElementById('ncorreo-destinatario').value;
+  const asunto = document.getElementById('ncorreo-asunto').value.trim();
+  const contenido = document.getElementById('ncorreo-contenido').value.trim();
+  const adjuntos = document.getElementById('ncorreo-adjuntos').files;
+  const errEl = document.getElementById('ncorreo-err');
+  const btn = document.getElementById('btn-enviar-correo');
+
+  errEl.classList.add('hidden');
+  if (!destinatario_id) { showErr(errEl, 'Selecciona un destinatario'); return; }
+  if (!asunto)    { showErr(errEl, 'El asunto es requerido'); return; }
+  if (!contenido) { showErr(errEl, 'El contenido es requerido'); return; }
+
+  setLoading(btn, true);
+  try {
+    const fd = new FormData();
+    fd.append('destinatario_id', destinatario_id);
+    fd.append('asunto', asunto);
+    fd.append('contenido', contenido);
+
+    for (let i = 0; i < adjuntos.length; i++) {
+      fd.append('adjuntos[]', adjuntos[i]);
+    }
+
+    const r = await fetch(BASE_URL + '/api/correos/enviar', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + API.token },
+      body: fd
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Error al enviar');
+
+    toast(data.mensaje || 'Correo enviado');
+    closeModal('modal-nuevo-correo');
+    document.getElementById('ncorreo-adjuntos').value = '';
+    cargarCorreos();
+  } catch (e) {
+    showErr(errEl, e.message);
+  } finally {
+    setLoading(btn, false, 'Enviar correo firmado');
+  }
+}
+
+async function verCorreo(id) {
+  try {
+    const r = await API.get('/api/correos/ver?id=' + id);
+    const c = r.correo;
+
+    const adjuntosResp = await API.get('/api/correos/adjuntos?correo_id=' + id);
+    const adjuntos = adjuntosResp.adjuntos || [];
+
+    const adjuntosHtml = adjuntos.length > 0 ? `
+      <div style="margin-top:16px">
+        <div class="text-xs muted" style="margin-bottom:8px">Adjuntos (${adjuntos.length})</div>
+        ${adjuntos.map(a => `
+          <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:6px">
+            <span style="font-size:18px">📄</span>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:500">${esc(a.nombre)}</div>
+              <div class="text-xs muted">${esc(a.tipo)} · ${Math.round(a.tamano_bytes/1024)} KB</div>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="descargarCorreoAdjunto('${a.id}', '${esc(a.nombre)}', '${esc(a.tipo)}')">Descargar</button>
+          </div>`).join('')}
+      </div>` : '';
+
+    const modal = document.createElement('div');
+    modal.className = 'modal-bd';
+    modal.id = 'modal-ver-correo';
+    modal.innerHTML = `
+      <div class="modal" style="max-width:640px">
+        <div class="modal-head">
+          <div class="modal-title">${esc(c.asunto)}</div>
+          <button class="modal-close" onclick="document.getElementById('modal-ver-correo').remove()">×</button>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px">
+          <div>
+            <div class="text-xs muted">De</div>
+            <div style="font-size:13px;margin-top:2px">${esc(c.emisor_nombre)}</div>
+            <div class="text-xs muted">${esc(c.emisor_email)}</div>
+          </div>
+          <div>
+            <div class="text-xs muted">Para</div>
+            <div style="font-size:13px;margin-top:2px">${esc(c.destinatario_nombre)}</div>
+            <div class="text-xs muted">${esc(c.destinatario_email)}</div>
+          </div>
+          <div>
+            <div class="text-xs muted">Enviado</div>
+            <div style="font-size:13px;margin-top:2px">${esc(c.enviado_en)}</div>
+          </div>
+          <div>
+            <div class="text-xs muted">Firma</div>
+            <div style="margin-top:2px"><span class="badge badge-green">✓ S/MIME institucional</span></div>
+          </div>
+        </div>
+        <div style="margin-top:20px">
+          <div class="text-xs muted" style="margin-bottom:8px">Contenido</div>
+          <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;white-space:pre-wrap;font-size:13px;line-height:1.5">${esc(c.contenido)}</div>
+        </div>
+        ${adjuntosHtml}
+      </div>`;
+    document.body.appendChild(modal);
+  } catch(e) {
+    toast('Error: ' + e.message, true);
+  }
+}
+
+async function descargarCorreoAdjunto(id, nombre, tipo) {
+  try {
+    const r = await API.get('/api/correos/descargar-adjunto?id=' + id);
+    const a = r.adjunto;
+    const binary = atob(a.contenido);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const blob = new Blob([bytes], { type: tipo });
+    const url = URL.createObjectURL(blob);
+    const elemento = document.createElement('a');
+    elemento.href = url;
+    elemento.download = nombre;
+    elemento.click();
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    toast('Error al descargar: ' + e.message, true);
+  }
+}
+
+/* ════════════════════════════════════════
    PAGE: CERTIFICATES
 ════════════════════════════════════════ */
 async function renderCerts() {
@@ -2093,14 +2376,17 @@ function renderProfile() {
         <div style="border-top:1px solid var(--border);padding-top:16px">
           <div style="font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:10px">Permisos de la cuenta</div>
           <div class="perm-row">
-            ${['r','w','x','e'].map(p =>
-              `<span class="perm-toggle ${perms.includes(p)?'perm-on':'perm-off'}" style="cursor:default">${p === 'r' ? 'r — Leer' : p === 'w' ? 'w — Escribir' : p === 'x' ? 'x — Autorizar' : 'e — Admin'}</span>`
-            ).join('')}
+            ${['r','w','x','e'].map(p => {
+            const emoji = p === 'r' ? '📖' : p === 'w' ? '✏️' : p === 'x' ? '🔓' : '👤';
+            const label = p === 'r' ? 'Leer' : p === 'w' ? 'Escribir' : p === 'x' ? 'Autorizar' : 'Admin';
+            return `<span class="perm-toggle ${perms.includes(p)?'perm-on':'perm-off'}" style="cursor:default;font-size:18px" title="${label}">${emoji}</span>`;
+          }).join('')}
           </div>
         </div>
         <div style="border-top:1px solid var(--border);padding-top:16px;margin-top:16px">
           <div style="font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:12px">Información</div>
           <div class="form-grid">
+            <div class="form-group"><label class="form-label">Matrícula</label><input class="form-input" value="${esc(u.matricula || '—')}" readonly style="background:var(--bg);font-family:monospace;font-weight:600"></div>
             <div class="form-group"><label class="form-label">Nombre completo</label><input class="form-input" value="${esc(u.nombre)}" readonly style="background:var(--bg)"></div>
             <div class="form-group"><label class="form-label">Correo</label><input class="form-input" value="${esc(u.email)}" readonly style="background:var(--bg)"></div>
             <div class="form-group"><label class="form-label">Área</label><input class="form-input" value="${esc(u.area)}" readonly style="background:var(--bg)"></div>
@@ -2155,9 +2441,6 @@ async function renderDocumentos(carpetaId = null, carpetaNombre = null) {
             <option value="Humanitaria">Humanitaria</option>
             <option value="PsicoSocial">PsicoSocial</option>
             <option value="Legal">Legal</option>
-            <option value="Comunicacion">Comunicación</option>
-            <option value="Almacen">Almacén</option>
-            <option value="TI">TI</option>
           </select>
         </div>` : ''}
         <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px">
@@ -2292,8 +2575,7 @@ async function cargarDocumentosDeCarpeta(carpetaId, carpetaNombre) {
     content.innerHTML = `
       <div style="margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
         <button class="btn btn-ghost btn-sm" onclick="renderDocumentos()">← Volver</button>
-        ${SESSION.nivel <= 3 ? `<button class="btn btn-primary btn-sm" onclick="poblarAreaNuevoDoc();openModal('modal-nuevo-doc')">` : ''}
-      </div>
+        ${SESSION.nivel <= 3 ? `<button class="btn btn-primary btn-sm" onclick="poblarAreaNuevoDoc();openModal('modal-nuevo-doc')">+ Nuevo documento</button>` : ''}      </div>
       ${!docs.length 
         ? `<div style="text-align:center;padding:40px;color:var(--muted);font-size:13px">Sin documentos en esta carpeta</div>`
         : `<table class="data-table">
@@ -2369,7 +2651,7 @@ async function eliminarCarpeta(id) {
 
 function poblarAreaNuevoDoc() {
   const select = document.getElementById('ndoc-area');
-  const areas = ['Humanitaria', 'PsicoSocial', 'Legal', 'Comunicacion', 'Almacen', 'TI'];
+  const areas = ['Humanitaria', 'PsicoSocial', 'Legal'];
 
   if (parseInt(SESSION.nivel) === 1) {
     // Admin: puede elegir cualquier área
@@ -2460,10 +2742,11 @@ async function verDocumento(id) {
             <div class="text-xs muted" style="margin-bottom:6px">Archivo adjunto</div>
             <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm)">
               <span style="font-size:20px">📄</span>
-              <div>
+              <div style="flex:1;min-width:0">
                 <div style="font-size:13px;font-weight:500">${esc(d.archivo_nombre)}</div>
                 <div class="text-xs muted">${esc(d.archivo_tipo || '')}</div>
               </div>
+              <button class="btn btn-primary btn-sm" onclick="descargarAdjuntoDoc('${d.id}', '${esc(d.archivo_nombre)}', '${esc(d.archivo_tipo || 'application/octet-stream')}')">Descargar</button>
             </div>
           </div>` : ''}
         ${SESSION.nivel <= 2 ? `
@@ -2483,6 +2766,31 @@ async function verDocumento(id) {
     }
   } catch(e) {
     toast('Error: ' + e.message, true);
+  }
+}
+
+async function descargarAdjuntoDoc(id, nombre, tipo) {
+  try {
+    const data = await API.get('/api/documentos/ver?id=' + id);
+    const d = data.documento;
+    if (!d.contenido_cifrado) {
+      toast('Este documento no tiene archivo adjunto', true);
+      return;
+    }
+
+    const binary = atob(d.contenido_cifrado);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+
+    const blob = new Blob([bytes], { type: tipo });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = nombre;
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    toast('Error al descargar: ' + e.message, true);
   }
 }
 

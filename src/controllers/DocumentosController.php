@@ -87,7 +87,9 @@ class DocumentosController {
         $area = $_POST['area'] ?? $payload['area'];
         $contenido_texto = $_POST['contenido_texto'] ?? '';
         $carpeta_id = $_POST['carpeta_id'] ?? null;
-
+        if ($carpeta_id === 'sin-clasificar' || $carpeta_id === '') {
+            $carpeta_id = null;
+}
         if (!$nombre) return $this->error(400, 'nombre es requerido');
         if ($payload['nivel'] > 1 && $area !== $payload['area']) {
             return $this->error(403, 'No puedes crear documentos en otra área');

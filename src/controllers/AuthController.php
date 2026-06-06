@@ -10,14 +10,13 @@ class AuthController {
         $this->db = getDB();
     }
 
-    public function me()
-    {
-        $payload = verificarAcceso(4); // cualquier nivel puede acceder
+    public function me() {
+        $payload = verificarAcceso(4);
 
         $stmt = $this->db->prepare("
-        SELECT id, nombre, email, nivel, area, activo, creado_en, es_espejo, espejo_de
-        FROM usuarios WHERE id = ?
-    ");
+            SELECT id, nombre, email, nivel, area, activo, creado_en, es_espejo, espejo_de, matricula
+            FROM usuarios WHERE id = ?
+        ");
         $stmt->execute([$payload['sub']]);
         $usuario = $stmt->fetch();
 

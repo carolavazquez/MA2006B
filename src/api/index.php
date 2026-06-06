@@ -201,6 +201,20 @@ switch ($resource) {
         }
         break;
 
+    case 'correos':
+        require_once __DIR__ . '/../controllers/CorreosController.php';
+        $controller = new CorreosController();
+        switch ($action) {
+            case 'destinatarios': echo json_encode($controller->destinatarios()); break;
+            case 'enviar':        echo json_encode($controller->enviar()); break;
+            case 'listar':        echo json_encode($controller->listar()); break;
+            case 'ver':           echo json_encode($controller->ver()); break;
+            case 'adjuntos':            echo json_encode($controller->adjuntos()); break;
+            case 'descargar-adjunto':   echo json_encode($controller->descargarAdjunto()); break;
+            default: http_response_code(404); echo json_encode(['error' => 'Acción no encontrada']);
+        }
+        break;
+
 
     default:
         http_response_code(404);

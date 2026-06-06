@@ -203,25 +203,58 @@ class Templates {
         return self::layout('Nueva comunicación externa', $cuerpo);
     }
 
-    public static function externoSoloComunicacion($nombre, $externo_id)
-    {
+    public static function externoSoloComunicacion($nombre, $externo_id) {
         $appUrl = env('APP_URL', 'http://localhost:8080');
         $url = $appUrl . '/externo.html?id=' . urlencode($externo_id);
+        $urlVerificar = $appUrl . '/verificar.html';
         $cuerpo = '
-        <h2 style="margin-top:0;color:#c84c2a">Bienvenido como colaborador externo</h2>
-        <p>Hola ' . htmlspecialchars($nombre) . ',</p>
-        <p>Casa Monarca te ha habilitado como colaborador externo para enviar comunicaciones firmadas al sistema. No requieres iniciar sesión en la plataforma.</p>
-        <p>Cuando necesites enviar una comunicación o documento firmado a Casa Monarca, ingresa al siguiente enlace personal:</p>
-        <p style="margin:24px 0">
-            <a href="' . htmlspecialchars($url) . '" style="background:#c84c2a;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block">Canal de comunicación</a>
-        </p>
-        <p style="font-size:13px;color:#888">
-            <strong>Importante:</strong> próximamente recibirás otro correo con tu certificado digital y llave privada. Necesitarás tu llave privada (.key) para firmar cada comunicación que envíes. Guárdala en un lugar seguro.
-        </p>
-        <p style="font-size:13px;color:#888">
-            Cada comunicación que envíes quedará firmada criptográficamente con tu certificado, garantizando autenticidad. Casa Monarca verifica la firma antes de procesar tu mensaje.
-        </p>';
-        return self::layout('Canal de comunicación', $cuerpo);
+            <h2 style="margin-top:0;color:#c84c2a">Bienvenido como colaborador externo</h2>
+            <p>Hola ' . htmlspecialchars($nombre) . ',</p>
+            <p>Casa Monarca te ha habilitado como colaborador externo para enviar comunicaciones firmadas al sistema. No requieres iniciar sesión en la plataforma.</p>
+
+            <h3 style="color:#c84c2a;margin-top:24px;margin-bottom:8px;font-size:15px">Enviar comunicaciones</h3>
+            <p>Cuando necesites enviar una comunicación o documento firmado a Casa Monarca, ingresa al siguiente enlace personal:</p>
+            <p style="margin:16px 0">
+                <a href="' . htmlspecialchars($url) . '" style="background:#c84c2a;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block">Canal de comunicación</a>
+            </p>
+
+            <h3 style="color:#c84c2a;margin-top:24px;margin-bottom:8px;font-size:15px">Verificar correos recibidos</h3>
+            <p>Si recibiste un correo de Casa Monarca y quieres confirmar que es auténtico y no ha sido alterado, puedes verificar su firma digital descargando el correo como archivo <code>.eml</code> y subiéndolo al verificador público:</p>
+            <p style="margin:16px 0">
+                <a href="' . htmlspecialchars($urlVerificar) . '" style="background:#fff;color:#c84c2a;padding:12px 24px;text-decoration:none;border:1px solid #c84c2a;border-radius:6px;display:inline-block">Verificar autenticidad de correos</a>
+            </p>
+
+            <hr style="border:none;border-top:1px solid #eee;margin:24px 0">
+
+            <p style="font-size:13px;color:#888">
+                <strong>Importante:</strong> próximamente recibirás otro correo con tu certificado digital y llave privada. Necesitarás tu llave privada (.key) para firmar cada comunicación que envíes. Guárdala en un lugar seguro.
+            </p>
+            <p style="font-size:13px;color:#888">
+                Cada comunicación que envíes quedará firmada criptográficamente con tu certificado, garantizando autenticidad. Casa Monarca verifica la firma antes de procesar tu mensaje.
+            </p>';
+        return self::layout('Acceso de colaborador externo', $cuerpo);
+    }
+
+    public static function correoInstitucional($destinatario_nombre, $emisor_nombre, $asunto, $contenido, $num_adjuntos = 0) {
+        $avisoAdjuntos = $num_adjuntos > 0 
+            ? '<div style="background:#e7f3fe;border-left:4px solid #2196F3;padding:10px 14px;margin:16px 0;font-size:13px"><strong>📎 ' . $num_adjuntos . ' archivo(s) adjunto(s)</strong> incluidos en este correo, también cubiertos por la firma digital.</div>'
+            : '';
+
+        $cuerpo = '
+            <h2 style="margin-top:0;color:#c84c2a">' . htmlspecialchars($asunto) . '</h2>
+            <p>Estimado(a) ' . htmlspecialchars($destinatario_nombre) . ',</p>
+            <div style="background:#f9f9f9;padding:16px;border-left:4px solid #c84c2a;margin:16px 0;white-space:pre-wrap;line-height:1.6">' . htmlspecialchars($contenido) . '</div>
+            ' . $avisoAdjuntos . '
+            <p style="margin-top:24px;font-size:14px">
+                Atentamente,<br>
+                <strong>' . htmlspecialchars($emisor_nombre) . '</strong><br>
+                Casa Monarca
+            </p>
+            <hr style="border:none;border-top:1px solid #eee;margin:24px 0">
+            <p style="font-size:12px;color:#888">
+                Este correo fue enviado desde el sistema institucional de Casa Monarca y va firmado digitalmente con S/MIME para garantizar su autenticidad e integridad. La firma cubre el contenido del mensaje y todos los archivos adjuntos.
+            </p>';
+        return self::layout('Correo institucional', $cuerpo);
     }
 
     public static function alertaIntegridadAdjuntos($nombre, $discrepancias) {

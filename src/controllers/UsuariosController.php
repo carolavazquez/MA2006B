@@ -25,8 +25,7 @@ class UsuariosController {
             if ($_GET['estado'] === 'activo')    { $filtros[] = "activo = ?"; $valores[] = 1; }
         }
         $where = count($filtros) > 0 ? "WHERE " . implode(" AND ", $filtros) : "";
-        $stmt = $this->db->prepare("SELECT id, nombre, email, nivel, area, activo, creado_en FROM usuarios $where ORDER BY nivel ASC, nombre ASC");
-        $stmt->execute($valores);
+        $stmt = $this->db->prepare("SELECT id, nombre, email, nivel, area, activo, creado_en, matricula FROM usuarios $where ORDER BY nivel ASC, nombre ASC");        $stmt->execute($valores);
 
         return ['status' => 'ok', 'total' => $stmt->rowCount(), 'usuarios' => $stmt->fetchAll()];
     }
@@ -47,8 +46,7 @@ class UsuariosController {
         return ['status' => 'ok', 'usuario' => $usuario, 'historial' => $stmt->fetchAll()];
     }
 
-    public function crear()
-    {
+    public function crear() {
         $admin = verificarAcceso(1, null, 'w');
         $body = json_decode(file_get_contents('php://input'), true);
 
@@ -79,11 +77,12 @@ class UsuariosController {
         $id = $this->uuid();
         $password_temporal = bin2hex(random_bytes(8));
         $password_hash = password_hash($password_temporal, PASSWORD_BCRYPT);
+        $matricula = $this->generarMatricula($area);
 
         $this->db->prepare("
-        INSERT INTO usuarios (id, nombre, email, password_hash, password_temporal, nivel, area, activo, solo_comunicacion)
-        VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)
-    ")->execute([$id, $nombre, $email, $password_hash, $password_temporal, $nivel, $area, $solo_comunicacion]);
+            INSERT INTO usuarios (id, nombre, email, password_hash, password_temporal, nivel, area, activo, solo_comunicacion, matricula)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
+        ")->execute([$id, $nombre, $email, $password_hash, $password_temporal, $nivel, $area, $solo_comunicacion, $matricula]);
 
         $this->bitacora($admin['sub'], 'CREAR_USUARIO', 'usuarios', $id);
 
@@ -91,7 +90,8 @@ class UsuariosController {
             'status' => 'ok',
             'mensaje' => $solo_comunicacion
                 ? 'Colaborador externo creado (solo comunicaciones). Acceso inactivo hasta ser activado.'
-                : 'Colaborador creado. Acceso inactivo hasta ser activado. Las credenciales se enviarán por correo al activar.'
+                : 'Colaborador creado. Acceso inactivo hasta ser activado. Las credenciales se enviarán por correo al activar.',
+            'matricula' => $matricula
         ];
     }
 
@@ -464,6 +464,36 @@ class UsuariosController {
         $efectivos = permisosEfectivos($usuario_id, $usuario['nivel']);
 
         return ['status' => 'ok', 'permisos' => $efectivos];
+    }
+
+    private function generarMatricula($area) {
+        $prefijos = [
+            'Humanitaria'  => 'HUM',
+            'PsicoSocial'  => 'PSI',
+            'Legal'        => 'LEG',
+            'Comunicacion' => 'COM',
+            'Almacen'      => 'ALM',
+            'TI'           => 'TI',
+        ];
+
+        $prefijo = $prefijos[$area] ?? 'GEN';
+
+        $stmt = $this->db->prepare("
+            SELECT matricula FROM usuarios 
+            WHERE matricula LIKE ? 
+            ORDER BY CAST(SUBSTRING_INDEX(matricula, '-', -1) AS UNSIGNED) DESC 
+            LIMIT 1
+        ");
+        $stmt->execute([$prefijo . '-%']);
+        $ultima = $stmt->fetchColumn();
+
+        $siguiente = 1;
+        if ($ultima) {
+            $partes = explode('-', $ultima);
+            $siguiente = intval(end($partes)) + 1;
+        }
+
+        return $prefijo . '-' . str_pad($siguiente, 4, '0', STR_PAD_LEFT);
     }
 
     private function bitacora($usuario_id, $accion, $tabla, $registro_id) {
